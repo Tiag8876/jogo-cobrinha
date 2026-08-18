@@ -1,6 +1,11 @@
 import type { Dir } from '../core/state';
 
-export type DirHandler = (dir: Dir) => void;
+export interface InputSink {
+  dir(d: Dir): void;
+  power(slot: number): void;
+  ouroboro(): void;
+  pause(): void;
+}
 
 const KEY_TO_DIR: Record<string, Dir> = {
   ArrowUp: 0,
@@ -13,18 +18,25 @@ const KEY_TO_DIR: Record<string, Dir> = {
   KeyA: 3,
 };
 
-// Retorna uma funcao de teardown para nao vazar listener na troca de tela.
-export function attachKeyboard(onDir: DirHandler, onPause: () => void): () => void {
-  const handler = (e: KeyboardEvent) => {
+// Devolve o teardown: nada de vazar listener ao trocar de tela.
+export function attachKeyboard(sink: InputSink): () => void {
+  const handler = (e: KeyboardEvent): void => {
+    if (e.repeat) return;
     const dir = KEY_TO_DIR[e.code];
     if (dir !== undefined) {
       e.preventDefault();
-      onDir(dir);
+      sink.dir(dir);
       return;
     }
-    if (e.code === 'Space' || e.code === 'Escape' || e.code === 'KeyP') {
+    if (e.code === 'Digit1') sink.power(0);
+    else if (e.code === 'Digit2') sink.power(1);
+    else if (e.code === 'Digit3') sink.power(2);
+    else if (e.code === 'Space') {
       e.preventDefault();
-      onPause();
+      sink.ouroboro();
+    } else if (e.code === 'Escape' || e.code === 'KeyP') {
+      e.preventDefault();
+      sink.pause();
     }
   };
   window.addEventListener('keydown', handler);

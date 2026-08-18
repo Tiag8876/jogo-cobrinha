@@ -1,28 +1,33 @@
-// Camada estatica: fundo e grade desenhados uma unica vez em canvas offscreen.
+import type { Paleta } from './palette';
+
+// Camadas estaticas desenhadas uma vez em canvas offscreen:
+// grade da arena e o grao de filme, que so e sorteado no boot.
 
 export interface StaticLayer {
-  canvas: HTMLCanvasElement;
+  grade: HTMLCanvasElement;
+  grao: HTMLCanvasElement;
   cell: number;
   pxW: number;
   pxH: number;
 }
 
-export const BG_COLOR = '#16130F';
-const GRID_COLOR = 'rgba(226, 218, 200, 0.06)';
+function makeCanvas(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, w);
+  c.height = Math.max(1, h);
+  return c;
+}
 
-export function buildStaticLayer(gridW: number, gridH: number, cell: number): StaticLayer {
+export function buildStaticLayer(gridW: number, gridH: number, cell: number, pal: Paleta): StaticLayer {
   const pxW = gridW * cell;
   const pxH = gridH * cell;
-  const canvas = document.createElement('canvas');
-  canvas.width = pxW;
-  canvas.height = pxH;
-  const ctx = canvas.getContext('2d');
+  const grade = makeCanvas(pxW, pxH);
+  const ctx = grade.getContext('2d');
   if (!ctx) throw new Error('sem contexto 2d');
 
-  ctx.fillStyle = BG_COLOR;
+  ctx.fillStyle = pal.fundo;
   ctx.fillRect(0, 0, pxW, pxH);
-
-  ctx.strokeStyle = GRID_COLOR;
+  ctx.strokeStyle = pal.grade;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = 1; x < gridW; x++) {
@@ -35,12 +40,26 @@ export function buildStaticLayer(gridW: number, gridH: number, cell: number): St
   }
   ctx.stroke();
 
-  // Vinheta leve, tambem estatica.
-  const g = ctx.createRadialGradient(pxW / 2, pxH / 2, Math.min(pxW, pxH) * 0.45, pxW / 2, pxH / 2, Math.max(pxW, pxH) * 0.75);
+  const g = ctx.createRadialGradient(pxW / 2, pxH / 2, Math.min(pxW, pxH) * 0.42, pxW / 2, pxH / 2, Math.max(pxW, pxH) * 0.72);
   g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, 'rgba(0,0,0,0.28)');
+  g.addColorStop(1, 'rgba(0,0,0,0.34)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, pxW, pxH);
 
-  return { canvas, cell, pxW, pxH };
+  // Grao: tile pequeno repetido, gerado uma unica vez.
+  const grao = makeCanvas(128, 128);
+  const gc = grao.getContext('2d');
+  if (gc) {
+    const img = gc.createImageData(128, 128);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = 120 + ((Math.random() * 70) | 0);
+      img.data[i] = v;
+      img.data[i + 1] = v;
+      img.data[i + 2] = v;
+      img.data[i + 3] = 16;
+    }
+    gc.putImageData(img, 0, 0);
+  }
+
+  return { grade, grao, cell, pxW, pxH };
 }

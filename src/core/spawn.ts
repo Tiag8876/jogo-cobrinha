@@ -1,49 +1,74 @@
-import type { GameState, Fruit } from './state';
-import { bodyContains } from './state';
-import { rngInt } from './rng';
-
-export const MIN_FRUITS = 1;
-export const MAX_FRUITS = 3;
+import type { GameState, Fruit, FruitKind } from './state';
+import { bodyContains, insideArena } from './state';
+import { rngInt, rngNext } from './rng';
+import { MIN_FRUITS, MAX_FRUITS } from './config';
+import { isCorrupt } from './corruption';
 
 function cellFree(s: GameState, x: number, y: number): boolean {
+  if (!insideArena(s, x, y)) return false;
   if (bodyContains(s, x, y)) return false;
+  if (isCorrupt(s, x, y)) return false;
   for (let i = 0; i < s.fruits.length; i++) {
     if (s.fruits[i].x === x && s.fruits[i].y === y) return false;
   }
   return true;
 }
 
-// Sorteia uma celula livre. Tenta aleatorio algumas vezes e cai para
-// varredura linear com offset sorteado, garantindo que sempre acha se existir.
-function findFreeCell(s: GameState): { x: number; y: number } | null {
-  for (let attempt = 0; attempt < 24; attempt++) {
-    const x = rngInt(s.rng, s.gridW);
-    const y = rngInt(s.rng, s.gridH);
-    if (cellFree(s, x, y)) return { x, y };
-  }
-  const total = s.gridW * s.gridH;
-  const start = rngInt(s.rng, total);
-  for (let i = 0; i < total; i++) {
-    const idx = (start + i) % total;
-    const x = idx % s.gridW;
-    const y = Math.floor(idx / s.gridW);
-    if (cellFree(s, x, y)) return { x, y };
-  }
-  return null;
+// Uma celula esta encurralada se tiver menos de 2 vizinhos livres.
+function encurralada(s: GameState, x: number, y: number): boolean {
+  let livres = 0;
+  if (cellFree(s, x + 1, y)) livres++;
+  if (cellFree(s, x - 1, y)) livres++;
+  if (cellFree(s, x, y + 1)) livres++;
+  if (cellFree(s, x, y - 1)) livres++;
+  return livres < 2;
 }
 
-// Mantem entre MIN_FRUITS e MAX_FRUITS no mapa. Muta o estado que recebeu,
-// que ja e a copia do proximo tick dentro de step().
+// Sorteia celula livre. Tenta aleatorio e cai para varredura com offset
+// sorteado, garantindo que encontra se existir alguma.
+export function findFreeCell(s: GameState, evitarEncurralada: boolean): { x: number; y: number } | null {
+  const w = s.maxX - s.minX + 1;
+  const h = s.maxY - s.minY + 1;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const x = s.minX + rngInt(s.rng, w);
+    const y = s.minY + rngInt(s.rng, h);
+    if (cellFree(s, x, y) && (!evitarEncurralada || !encurralada(s, x, y))) return { x, y };
+  }
+  const total = w * h;
+  const start = rngInt(s.rng, total);
+  let fallback: { x: number; y: number } | null = null;
+  for (let i = 0; i < total; i++) {
+    const idx = (start + i) % total;
+    const x = s.minX + (idx % w);
+    const y = s.minY + Math.floor(idx / w);
+    if (!cellFree(s, x, y)) continue;
+    if (!encurralada(s, x, y)) return { x, y };
+    if (!fallback) fallback = { x, y };
+  }
+  return fallback;
+}
+
+function sorteiaTipo(s: GameState): FruitKind {
+  const r = rngNext(s.rng);
+  if (r < 0.06) return 'amarga';
+  if (r < 0.11) return 'espelho';
+  return 'comum';
+}
+
+export function spawnFruit(s: GameState, kind: FruitKind | null): Fruit | null {
+  const cell = findFreeCell(s, true);
+  if (!cell) return null;
+  const f: Fruit = { x: cell.x, y: cell.y, kind: kind ?? sorteiaTipo(s), age: 0 };
+  s.fruits.push(f);
+  return f;
+}
+
+// Mantem entre MIN_FRUITS e MAX_FRUITS no mapa.
 export function ensureFruits(s: GameState): void {
   while (s.fruits.length < MIN_FRUITS) {
-    const cell = findFreeCell(s);
-    if (!cell) return;
-    const fruit: Fruit = { x: cell.x, y: cell.y, kind: 'comum', age: 0 };
-    s.fruits.push(fruit);
+    if (!spawnFruit(s, null)) return;
   }
-  // Chance pequena de nascer fruta extra ate o teto, para o mapa respirar.
-  if (s.fruits.length < MAX_FRUITS && s.tick % 40 === 0 && rngInt(s.rng, 4) === 0) {
-    const cell = findFreeCell(s);
-    if (cell) s.fruits.push({ x: cell.x, y: cell.y, kind: 'comum', age: 0 });
+  if (s.fruits.length < MAX_FRUITS && s.tick % 24 === 0 && rngInt(s.rng, 3) === 0) {
+    spawnFruit(s, null);
   }
 }
