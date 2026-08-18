@@ -15,6 +15,7 @@ npm run build    # typecheck e bundle de producao em dist/
 npm test         # 58 testes de nucleo com vitest
 npm run bench    # relatorio de bundle e teste de estresse em Chromium
 npm run smoke    # smoke funcional: menu, partida, loja, save, mobile 320px
+npm run single   # dist/ouroboro.html, o jogo inteiro em um arquivo so
 ```
 
 O `bench` e o `smoke` precisam do Chromium do Playwright, que é devDependency e não entra no bundle.
@@ -145,15 +146,15 @@ Metas medidas, não presumidas. Rode `npm run bench` para reproduzir.
 
 | Métrica | Meta | Medido |
 | --- | --- | --- |
-| Bundle JS gzip | abaixo de 150 KB | 20,3 KB |
-| Bundle bruto | | 56,1 KB |
+| Bundle JS gzip | abaixo de 150 KB | 20,0 KB |
+| Bundle bruto | | 55,3 KB |
 | Requisições após a carga | zero | zero |
-| Tempo até jogável | abaixo de 1 s | 138 ms |
+| Tempo até jogável | abaixo de 1 s | 157 ms |
 | FPS no estresse, 217 segmentos e 372 partículas | 60 | 60,2 |
 | Pior frame | 16,6 ms | 16,8 ms |
 | Erros de console | nenhum | nenhum |
 
-O jogo funciona offline depois da primeira carga, via um service worker cache first de 30 linhas. Testado em viewport de 320 px e em desktop.
+O bundle sai em IIFE com base relativa, então roda em subpasta, em `file://` e como arquivo único. O jogo funciona offline depois da primeira carga, via um service worker cache first de 30 linhas. Testado em viewport de 320 px e em desktop.
 
 ## Qualidade
 
