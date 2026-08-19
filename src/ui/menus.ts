@@ -4,6 +4,10 @@ import { MODES, MODE_ORDER, POWERS } from '../core/config';
 import { listarSkins, listarPoderes, listarReliquias, comprar, equipar } from '../meta/shop';
 import type { ShopItem } from '../meta/shop';
 import { sfxUi, sfxCompra } from '../audio/synth';
+import { drawIcone } from './hud';
+import { drawSkinPreview, drawRelicIcon } from './preview';
+import { skinById } from '../render/skins/defs';
+import type { PowerId, RelicId } from '../core/config';
 
 // Menus em DOM: acessiveis por teclado e leitor de tela, e mais leves
 // que redesenhar tudo em canvas. Zero framework.
@@ -35,6 +39,21 @@ const CSS = `
 .ouro-grande{font-size:clamp(40px,14vw,72px);font-weight:800;line-height:1;margin:0}
 .ouro-tab{display:flex;justify-content:space-between;font-size:13px;opacity:.8;
   border-bottom:1px solid rgba(226,218,200,.1);padding:4px 0}
+.ouro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ouro-card{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:10px}
+.ouro-card canvas{width:100%;height:56px;display:block;border-radius:2px;
+  background:radial-gradient(circle at 50% 40%,rgba(226,218,200,.05),rgba(0,0,0,.25))}
+.ouro-card b{font-size:14.5px}
+.ouro-card span{font-size:11.5px;line-height:1.35;min-height:2.7em}
+.ouro-rodape-card{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.ouro-preco{display:inline-flex;align-items:center;gap:5px;letter-spacing:.04em}
+.ouro-preco i{width:9px;height:9px;border-radius:50%;background:#D9A441;
+  box-shadow:0 0 5px rgba(217,164,65,.7);font-style:normal}
+.ouro-rar{font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.9}
+.ouro-rar-comum{color:#9C9484}.ouro-rar-incomum{color:#8FBF5A}
+.ouro-rar-raro{color:#6EA8FF}.ouro-rar-lendario{color:#D9A441}
+.ouro-equipado{color:#D9A441}
+.ouro-continuar{border-color:#D9A441;background:rgba(217,164,65,.1)}
 .ouro-dpad{position:fixed;left:calc(10px + env(safe-area-inset-left));
   bottom:calc(10px + env(safe-area-inset-bottom));width:150px;height:150px;z-index:5;opacity:.5}
 .ouro-dbtn{position:absolute;width:50px;height:50px;background:rgba(226,218,200,.12);
@@ -77,6 +96,8 @@ export interface UIHandlers {
   jogar(mode: ModeId): void;
   retomar(): void;
   sair(): void;
+  temRunSalva(): boolean;
+  retomarRun(): void;
   mudouSave(): void;
 }
 
@@ -130,6 +151,11 @@ export class UI {
     box.appendChild(el('p', 'ouro-moedas', `${this.save.coins} moedas`));
 
     const lista = el('div', 'ouro-lista');
+    if (this.h.temRunSalva()) {
+      const b = botao('Continuar run', 'sua partida foi guardada onde parou', () => this.h.retomarRun());
+      b.classList.add('ouro-continuar');
+      lista.appendChild(b);
+    }
     for (const id of MODE_ORDER) {
       const m = MODES[id];
       const rec = this.save.recordes[id];
@@ -191,35 +217,76 @@ export class UI {
     const itens: ShopItem[] =
       this.aba === 'skin' ? listarSkins(this.save) : this.aba === 'poder' ? listarPoderes(this.save) : listarReliquias(this.save);
 
-    const lista = el('div', 'ouro-lista');
+    const lista = el('div', 'ouro-lista ouro-grid');
     for (const it of itens) {
-      const preco = it.comprado ? (it.equipado ? 'equipado' : 'equipar') : `${it.preco} moedas`;
-      const b = botao(it.nome, it.desc, () => {
-        if (it.comprado) {
-          equipar(this.save, it);
-          sfxUi(true);
-        } else {
-          const r = comprar(this.save, it);
-          if (r === 'ok') {
-            sfxCompra();
-            // O item recem comprado ja entra equipado, senao o jogador
-            // paga e nada muda na proxima run.
-            it.comprado = true;
-            equipar(this.save, it);
-          } else {
-            sfxUi(false);
-          }
-        }
-        this.h.mudouSave();
-        this.loja();
-      }, it.equipado);
-      const tag = el('i', 'ouro-tag', preco);
-      b.firstChild?.appendChild(tag);
-      if (!it.comprado && this.save.coins < it.preco) b.classList.add('ouro-caro');
-      lista.appendChild(b);
+      lista.appendChild(this.cardLoja(it));
     }
     box.appendChild(lista);
     box.appendChild(botao('Voltar', '', () => this.menu()));
+  }
+
+  // Card da loja: previa desenhada em canvas, nome, raridade, descricao
+  // e preco. A previa das skins e a mesma cobra do jogo em miniatura, e
+  // a dos poderes e o mesmo icone do rodape do HUD.
+  private cardLoja(it: ShopItem): HTMLButtonElement {
+    const b = el('button', 'ouro-btn ouro-card');
+    b.setAttribute('aria-pressed', String(it.equipado));
+
+    const cv = document.createElement('canvas');
+    cv.width = 168;
+    cv.height = 56;
+    if (it.tipo === 'skin') {
+      drawSkinPreview(cv, skinById(it.id));
+    } else if (it.tipo === 'poder') {
+      const c2 = cv.getContext('2d');
+      if (c2) drawIcone(c2, it.id as PowerId, cv.width / 2, cv.height / 2, 16, '#E2DAC8');
+    } else {
+      drawRelicIcon(cv, it.id as RelicId, '#C9A2E8');
+    }
+    b.appendChild(cv);
+
+    const titulo = el('b', undefined, it.nome);
+    if (it.tipo === 'skin') {
+      const rar = skinById(it.id).raridade;
+      const tag = el('i', `ouro-tag ouro-rar ouro-rar-${rar}`, rar);
+      titulo.appendChild(tag);
+    }
+    b.appendChild(titulo);
+    b.appendChild(el('span', undefined, it.desc));
+
+    const rodape = el('div', 'ouro-rodape-card');
+    if (it.comprado) {
+      rodape.appendChild(el('em', it.equipado ? 'ouro-equipado' : undefined, it.equipado ? 'equipado' : 'equipar'));
+    } else {
+      const preco = el('em', 'ouro-preco');
+      preco.appendChild(el('i'));
+      preco.appendChild(document.createTextNode(String(it.preco)));
+      rodape.appendChild(preco);
+    }
+    b.appendChild(rodape);
+
+    if (!it.comprado && this.save.coins < it.preco) b.classList.add('ouro-caro');
+
+    b.addEventListener('click', () => {
+      if (it.comprado) {
+        equipar(this.save, it);
+        sfxUi(true);
+      } else {
+        const r = comprar(this.save, it);
+        if (r === 'ok') {
+          sfxCompra();
+          // O item recem comprado ja entra equipado, senao o jogador
+          // paga e nada muda na proxima run.
+          it.comprado = true;
+          equipar(this.save, it);
+        } else {
+          sfxUi(false);
+        }
+      }
+      this.h.mudouSave();
+      this.loja();
+    });
+    return b;
   }
 
   opcoes(): void {

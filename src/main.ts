@@ -152,10 +152,92 @@ const sink: InputSink = {
   },
 };
 
+// Run em andamento persistida: refresh ou aba descartada no mobile nao
+// perdem a partida. So o estado do nucleo e a gravacao entram; o resto
+// (particulas, tremor) e visual e recomeca do zero.
+const RUN_KEY = 'ouroboro.run';
+
+interface RunSalva {
+  v: number;
+  mode: ModeId;
+  seed: number;
+  state: GameState;
+  rec: { pares: number[]; passo: number };
+}
+
+function salvarRun(): void {
+  if (!rodando || !sim || !sim.state.alive) return;
+  try {
+    const data: RunSalva = {
+      v: 1,
+      mode: modoAtual,
+      seed: seedGravada,
+      state: sim.state,
+      rec: gravador.serialize(),
+    };
+    localStorage.setItem(RUN_KEY, JSON.stringify(data));
+  } catch {
+    // Sem armazenamento a run so nao sobrevive ao refresh.
+  }
+}
+
+function limparRun(): void {
+  try {
+    localStorage.removeItem(RUN_KEY);
+  } catch {
+    // Nada a fazer.
+  }
+}
+
+function lerRunSalva(): RunSalva | null {
+  try {
+    const raw = localStorage.getItem(RUN_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as RunSalva;
+    if (d.v !== 1 || !d.state || !Array.isArray(d.state.body) || !d.state.alive) return null;
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+function retomarRunSalva(): void {
+  const d = lerRunSalva();
+  if (!d) return;
+  initAudio();
+  modoAtual = d.mode;
+  seedGravada = d.seed;
+  sim = new Sim({
+    seed: d.seed,
+    mode: d.mode,
+    powers: saveData.loadout.slice(0, 3),
+    relics: saveData.reliquiasEquipadas.slice(0, 2),
+  });
+  sim.restaurar(d.state);
+  gravador = new GhostRecorder();
+  gravador.restore(d.rec);
+  // O fantasma corre por passos: adianta a mesma contagem da run salva.
+  ghost = d.mode === 'fantasma' ? new GhostPlayer(saveData.ghost) : null;
+  if (ghost) for (let i = 0; i < d.rec.passo; i++) ghost.advance();
+  fila.clear();
+  clearParticles();
+  acc = 0;
+  morte = 0;
+  shake = 0;
+  zoom = 1;
+  hitstopAte = 0;
+  rodando = true;
+  pausado = false;
+  ui.esconder();
+  atualizarDpad();
+}
+
 const ui = new UI(saveData, {
   jogar: (mode) => iniciar(mode),
   retomar: () => retomar(),
   sair: () => encerrar(true),
+  temRunSalva: () => lerRunSalva() !== null,
+  retomarRun: () => retomarRunSalva(),
   mudouSave: () => {
     save(saveData);
     aplicarOpcoes();
@@ -207,6 +289,7 @@ function iniciar(mode: ModeId): void {
   hitstopAte = 0;
   rodando = true;
   pausado = false;
+  limparRun();
   ui.esconder();
   atualizarDpad();
 
@@ -232,6 +315,7 @@ function semearEstresse(): void {
 function pausar(): void {
   if (!rodando || pausado) return;
   pausado = true;
+  salvarRun();
   suspendAudio();
   ui.pausa();
   atualizarDpad();
@@ -248,6 +332,7 @@ function retomar(): void {
 
 function encerrar(voluntario: boolean): void {
   if (!sim) return;
+  limparRun();
   const s = sim.state;
   rodando = false;
   pausado = false;
@@ -550,6 +635,8 @@ window.addEventListener('blur', () => pausar());
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pausar();
 });
+// pagehide e o unico evento confiavel no iOS quando a aba morre.
+window.addEventListener('pagehide', () => salvarRun());
 document.body.addEventListener('pointerdown', () => initAudio(), { once: true });
 
 // Service worker so para o jogo abrir offline. Nao busca nada em jogo.

@@ -41,6 +41,17 @@ export class GhostRecorder {
     this.pares.length = 0;
     this.passo = 0;
   }
+
+  // Estado interno serializavel, para a run em andamento sobreviver a
+  // um refresh sem perder a gravacao do fantasma.
+  serialize(): { pares: number[]; passo: number } {
+    return { pares: this.pares.slice(), passo: this.passo };
+  }
+
+  restore(d: { pares: number[]; passo: number }): void {
+    this.pares = d.pares.slice();
+    this.passo = d.passo;
+  }
 }
 
 // Reproduz a run gravada em paralelo, um tick por tick do jogo atual.

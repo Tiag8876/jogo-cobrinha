@@ -189,8 +189,9 @@ function drawPoderes(ctx: CanvasRenderingContext2D, lay: Layout, s: GameState, p
   ctx.textAlign = 'left';
 }
 
-// Icones vetoriais, sem sprite e sem emoji.
-function drawIcone(ctx: CanvasRenderingContext2D, id: PowerId, cx: number, cy: number, r: number, cor: string): void {
+// Icones vetoriais, sem sprite e sem emoji. Exportado para a loja
+// desenhar o mesmo icone que o jogador vera no rodape em jogo.
+export function drawIcone(ctx: CanvasRenderingContext2D, id: PowerId, cx: number, cy: number, r: number, cor: string): void {
   ctx.strokeStyle = cor;
   ctx.fillStyle = cor;
   ctx.lineWidth = Math.max(1.5, r * 0.2);

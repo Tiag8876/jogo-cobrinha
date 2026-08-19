@@ -22,7 +22,7 @@ export function listarSkins(s: SaveData): ShopItem[] {
     tipo: 'skin' as const,
     id: sk.id,
     nome: sk.nome,
-    desc: `${sk.raridade} | forma ${sk.forma}, rastro ${sk.rastro}. Sem efeito no jogo`,
+    desc: `forma ${sk.forma}, rastro ${sk.rastro}, olho ${sk.olho}. Sem efeito no jogo`,
     preco: sk.preco,
     comprado: s.skinsDesbloqueadas.indexOf(sk.id) >= 0,
     equipado: s.skinEquipada === sk.id,

@@ -78,6 +78,15 @@ export class Sim {
     return null;
   }
 
+  // Repoe um estado salvo (retomada de run). O historico zera: nao se
+  // rebobina para antes do ponto de retomada.
+  restaurar(state: GameState): void {
+    this.state = cloneState(state);
+    this.prev = this.state;
+    this.history.fill(null);
+    this.histHead = 0;
+  }
+
   // Exposto para teste: quantos estados o buffer guarda de fato.
   historySize(): number {
     let n = 0;
