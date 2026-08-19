@@ -15,24 +15,44 @@
       background: #16130F;
       height: 100%;
       overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* O gesto so e capturado sobre o tabuleiro. Os menus precisam rolar,
+       entao touch-action fica no palco, nunca no documento inteiro. */
+    #stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      height: 100dvh;
+      width: 100vw;
       touch-action: none;
+      box-sizing: border-box;
     }
     #game {
       display: block;
       margin: 0 auto;
       image-rendering: auto;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    #stage {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
+    /* Sonda invisivel para ler as safe areas do aparelho em pixels. */
+    #safe {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      pointer-events: none;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-      box-sizing: border-box;
     }
   </style>
 </head>
 <body>
+  <div id="safe"></div>
   <div id="stage"><canvas id="game"></canvas></div>
   <script type="module" src="/src/main.ts"></script>
 </body>

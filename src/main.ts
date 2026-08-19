@@ -59,6 +59,7 @@ import {
   resumeAudio,
 } from './audio/synth';
 
+const stage = document.getElementById('stage') as HTMLElement;
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d', { alpha: false });
 if (!ctx) throw new Error('sem contexto 2d');
@@ -70,25 +71,86 @@ let lay: Layout;
 
 const stress = new URLSearchParams(location.search).has('stress');
 
-// Layout: arena quadrada com faixa a esquerda para a energia e rodape
-// para os poderes. Respeita 320 px de largura para cima.
+// Layout responsivo. A arena e sempre quadrada e a interface se
+// reorganiza conforme o formato da tela: em pe, os poderes ficam no
+// rodape; deitado, viram uma coluna a direita, senao a arena encolheria
+// para um selo no celular na horizontal.
+
+const safeEl = document.getElementById('safe');
+
+interface Safe {
+  topo: number;
+  direita: number;
+  baixo: number;
+  esquerda: number;
+}
+
+// Le as safe areas do aparelho em pixels, pela sonda com env() no CSS.
+function safeInsets(): Safe {
+  if (!safeEl) return { topo: 0, direita: 0, baixo: 0, esquerda: 0 };
+  const cs = getComputedStyle(safeEl);
+  return {
+    topo: parseFloat(cs.paddingTop) || 0,
+    direita: parseFloat(cs.paddingRight) || 0,
+    baixo: parseFloat(cs.paddingBottom) || 0,
+    esquerda: parseFloat(cs.paddingLeft) || 0,
+  };
+}
+
 function computeLayout(): void {
+  // No celular o teclado e a barra de endereco mudam a area util. A
+  // visualViewport e a unica medida que acompanha isso de verdade.
+  const vv = window.visualViewport;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const cssW = Math.max(280, window.innerWidth);
-  const cssH = Math.max(360, window.innerHeight);
-  const margem = 8;
-  const esquerdaCss = Math.max(26, Math.min(52, cssW * 0.09));
-  const rodapeCss = Math.max(58, Math.min(96, cssH * 0.13));
-  const topoCss = Math.max(26, Math.min(44, cssH * 0.045)); // placar e moedas
-  const dispW = cssW - esquerdaCss - margem * 2;
-  const dispH = cssH - rodapeCss - topoCss - margem * 2;
-  const arenaCss = Math.max(160, Math.min(dispW, dispH));
-  const cell = Math.max(4, Math.floor((arenaCss * dpr) / GRID_DEFAULT));
+  const safe = safeInsets();
+  const cssW = Math.max(240, Math.floor((vv ? vv.width : window.innerWidth) - safe.esquerda - safe.direita));
+  const cssH = Math.max(280, Math.floor((vv ? vv.height : window.innerHeight) - safe.topo - safe.baixo));
+  const margem = Math.max(4, Math.min(10, cssW * 0.02));
+  const paisagem = cssW > cssH * 1.15;
+
+  let esquerdaCss: number;
+  let rodapeCss: number;
+  let direitaCss: number;
+  let topoCss: number;
+  let arenaCss: number;
+
+  if (paisagem) {
+    // Deitado, a altura e o recurso escasso: o topo fica so com a margem
+    // e o placar vai para a coluna da direita, junto dos poderes.
+    topoCss = margem;
+    esquerdaCss = Math.max(24, Math.min(46, cssW * 0.05));
+    direitaCss = Math.max(62, Math.min(112, cssW * 0.14));
+    arenaCss = Math.min(cssW - esquerdaCss - direitaCss - margem * 2, cssH - topoCss - margem * 2);
+    rodapeCss = margem;
+  } else {
+    topoCss = Math.max(24, Math.min(44, cssH * 0.045));
+    esquerdaCss = Math.max(26, Math.min(52, cssW * 0.09));
+    // O rodape precisa caber um alvo de toque confortavel, nunca menos
+    // que 56 px de altura util.
+    rodapeCss = Math.max(66, Math.min(104, cssH * 0.13));
+    arenaCss = Math.min(cssW - esquerdaCss - margem * 2, cssH - topoCss - rodapeCss - margem * 2);
+    direitaCss = margem;
+  }
+  arenaCss = Math.max(140, arenaCss);
+
+  // A arena e quadrada, entao quase sempre sobra espaco no eixo mais
+  // longo. Em vez de deixar vazio, o painel dos poderes cresce ate um
+  // teto: botao maior, mais perto do polegar, e menos tela desperdicada.
+  if (paisagem) {
+    const folga = cssW - esquerdaCss - direitaCss - arenaCss - margem * 2;
+    if (folga > 0) direitaCss = Math.min(direitaCss + folga, arenaCss * 0.34);
+  } else {
+    const folga = cssH - topoCss - rodapeCss - arenaCss - margem * 2;
+    if (folga > 0) rodapeCss = Math.min(rodapeCss + folga, arenaCss * 0.5);
+  }
+
+  const cell = Math.max(3, Math.floor((arenaCss * dpr) / GRID_DEFAULT));
   const arenaPx = cell * GRID_DEFAULT;
   const esquerda = Math.round(esquerdaCss * dpr);
   const rodape = Math.round(rodapeCss * dpr);
+  const direita = Math.round(direitaCss * dpr);
   const topo = Math.round(topoCss * dpr);
-  const w = esquerda + arenaPx + Math.round(margem * dpr);
+  const w = esquerda + arenaPx + direita;
   const h = topo + arenaPx + rodape;
 
   canvas.width = w;
@@ -96,16 +158,17 @@ function computeLayout(): void {
   canvas.style.width = `${Math.round(w / dpr)}px`;
   canvas.style.height = `${Math.round(h / dpr)}px`;
 
-  lay = {
-    cell,
-    arenaX: esquerda,
-    arenaY: topo,
-    arenaPx,
-    w,
-    h,
-    esquerda,
-    rodape,
-  };
+  // Celular alto: em vez de centralizar e deixar os botoes no meio da
+  // tela, o jogo encosta embaixo, na zona que o polegar alcanca.
+  const sobra = cssH - (topoCss + arenaCss + rodapeCss);
+  const ancorarEmbaixo = !paisagem && sobra > cssH * 0.12;
+  stage.style.alignItems = ancorarEmbaixo ? 'flex-end' : 'center';
+  stage.style.paddingTop = `${safe.topo}px`;
+  stage.style.paddingRight = `${safe.direita}px`;
+  stage.style.paddingLeft = `${safe.esquerda}px`;
+  stage.style.paddingBottom = `${safe.baixo + (ancorarEmbaixo ? Math.min(28, sobra * 0.16) : 0)}px`;
+
+  lay = { cell, arenaX: esquerda, arenaY: topo, arenaPx, w, h, esquerda, rodape, direita, paisagem };
   layer = buildStaticLayer(GRID_DEFAULT, GRID_DEFAULT, cell, pal);
 }
 computeLayout();
@@ -256,15 +319,20 @@ function aplicarOpcoes(): void {
   atualizarDpad();
 }
 
-function atualizarDpad(): void {
+// O direcional acompanha o layout: menor e mais colado no canto quando a
+// tela e pequena, e some assim que a partida termina ou pausa.
+function atualizarDpad(refazer = false): void {
   const querDpad = saveData.opcoes.dpad && rodando && !pausado;
-  if (querDpad && !dpadEl) {
-    dpadEl = buildDpad(sink);
-    document.body.appendChild(dpadEl);
-  } else if (!querDpad && dpadEl) {
+  if (dpadEl && (!querDpad || refazer)) {
     dpadEl.remove();
     dpadEl = null;
   }
+  if (!querDpad || dpadEl) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const menorCss = Math.min(lay.w, lay.h) / dpr;
+  const tamanho = Math.round(Math.max(108, Math.min(168, menorCss * 0.42)));
+  dpadEl = buildDpad(sink, tamanho);
+  document.body.appendChild(dpadEl);
 }
 
 function novaDemo(): void {
@@ -680,8 +748,32 @@ attachTouch(document.body, sink, (clientX, clientY) => {
   // Qualquer outro toque curto e o Ouroboro, o botao de tela inteira.
   sink.ouroboro();
 });
-window.addEventListener('resize', () => computeLayout());
-window.addEventListener('orientationchange', () => computeLayout());
+// Uma unica rotina de reajuste, chamada por tudo que muda a area util.
+let reajuste = 0;
+function agendarLayout(): void {
+  if (reajuste) return;
+  reajuste = window.setTimeout(() => {
+    reajuste = 0;
+    computeLayout();
+    // O direcional e as telas de menu sao remontados no tamanho novo.
+    atualizarDpad(true);
+    if (ui.aberta) ui.reabrir();
+  }, 80);
+}
+window.addEventListener('resize', agendarLayout);
+window.addEventListener('orientationchange', () => {
+  // O iOS reporta o tamanho novo com atraso depois de girar.
+  agendarLayout();
+  window.setTimeout(() => {
+    computeLayout();
+    atualizarDpad(true);
+    if (ui.aberta) ui.reabrir();
+  }, 350);
+});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', agendarLayout);
+  window.visualViewport.addEventListener('scroll', agendarLayout);
+}
 window.addEventListener('blur', () => pausar());
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pausar();

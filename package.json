@@ -10,7 +10,8 @@
     "test": "vitest run",
     "bench": "npm run build && node scripts/bench.mjs",
     "smoke": "npm run build && node scripts/smoke.mjs",
-    "single": "npm run build && node scripts/single.mjs"
+    "single": "npm run build && node scripts/single.mjs",
+    "responsivo": "npm run build && node scripts/responsivo.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.1",

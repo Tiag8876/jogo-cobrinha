@@ -14,8 +14,10 @@ export interface Layout {
   arenaPx: number;
   w: number;
   h: number;
-  esquerda: number;
-  rodape: number;
+  esquerda: number; // faixa da barra de energia
+  rodape: number; // faixa dos poderes quando em pe
+  direita: number; // coluna dos poderes quando deitado
+  paisagem: boolean;
 }
 
 const FONTE = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
@@ -27,18 +29,32 @@ export interface Rect {
   h: number;
 }
 
-// Geometria do rodape, compartilhada entre o desenho e o teste de toque:
-// indices 0 a 2 sao os poderes, indice 3 e o botao do Ouroboro.
+// Geometria dos botoes, compartilhada entre o desenho e o teste de toque:
+// indices 0 a 2 sao os poderes, indice 3 e o botao do Ouroboro. Em pe eles
+// ficam em linha no rodape, deitado ficam empilhados na coluna da direita.
 export function hudRects(lay: Layout): Rect[] {
-  const n = 3;
+  const rects: Rect[] = [];
+  if (lay.paisagem) {
+    const tam = Math.min(lay.direita * 0.78, lay.arenaPx / 5.4);
+    const gap = tam * 0.22;
+    const oh = tam * 1.05;
+    const total = 3 * tam + 3 * gap + oh;
+    const x = lay.arenaX + lay.arenaPx + (lay.direita - tam) / 2;
+    let y = lay.arenaY + Math.max(0, (lay.arenaPx - total) / 2);
+    for (let i = 0; i < 3; i++) {
+      rects.push({ x, y, w: tam, h: tam });
+      y += tam + gap;
+    }
+    rects.push({ x, y, w: tam, h: oh });
+    return rects;
+  }
   const tam = Math.min(lay.rodape * 0.72, lay.arenaPx / 6);
   const gap = tam * 0.28;
   const ow = tam * 1.4;
-  const total = n * tam + (n - 1) * gap + ow;
+  const total = 3 * tam + 3 * gap + ow;
   let x = lay.arenaX + (lay.arenaPx - total) / 2;
   const y = lay.arenaY + lay.arenaPx + lay.rodape * 0.14;
-  const rects: Rect[] = [];
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < 3; i++) {
     rects.push({ x, y, w: tam, h: tam });
     x += tam + gap;
   }
@@ -113,7 +129,34 @@ export function drawHud(
     ctx.fillRect(tx - w / 2, ty + tam * 0.12, w * fracT, 3);
   }
 
-  // Placar e moedas no topo.
+  drawPlacar(ctx, lay, s, pal, moedasSessao);
+  drawPoderes(ctx, lay, s, pal);
+}
+
+// Placar e moedas. Em pe ficam na faixa do topo; deitado sobem para a
+// coluna lateral, o que devolve altura para a arena.
+function drawPlacar(
+  ctx: CanvasRenderingContext2D,
+  lay: Layout,
+  s: GameState,
+  pal: Paleta,
+  moedasSessao: number,
+): void {
+  const moedas = `${moedasSessao + s.coins} moedas`;
+  if (lay.paisagem) {
+    const cx = lay.arenaX + lay.arenaPx + lay.direita / 2;
+    const fonte = Math.floor(Math.min(lay.direita * 0.34, lay.arenaPx * 0.06));
+    ctx.textAlign = 'center';
+    ctx.fillStyle = pal.osso;
+    ctx.font = `700 ${fonte}px ${FONTE}`;
+    ctx.fillText(String(s.score), cx, lay.arenaY + fonte);
+    ctx.globalAlpha = 0.7;
+    ctx.font = `400 ${Math.floor(fonte * 0.46)}px ${FONTE}`;
+    ctx.fillText(moedas, cx, lay.arenaY + fonte * 1.6);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+    return;
+  }
   // O topo e estreito: o texto se ajusta a ele, nunca ao tamanho da arena.
   const topoFonte = Math.floor(Math.min(lay.arenaPx * 0.045, lay.arenaY * 0.62));
   const baseline = lay.arenaY - Math.max(4, lay.arenaY * 0.12);
@@ -124,23 +167,33 @@ export function drawHud(
   ctx.textAlign = 'right';
   ctx.font = `400 ${Math.floor(topoFonte * 0.7)}px ${FONTE}`;
   ctx.globalAlpha = 0.75;
-  ctx.fillText(`${moedasSessao + s.coins} moedas`, lay.arenaX + lay.arenaPx, baseline);
+  ctx.fillText(moedas, lay.arenaX + lay.arenaPx, baseline);
   ctx.globalAlpha = 1;
-
-  drawPoderes(ctx, lay, s, pal);
+  ctx.textAlign = 'left';
 }
 
 function drawPoderes(ctx: CanvasRenderingContext2D, lay: Layout, s: GameState, pal: Paleta): void {
   const rects = hudRects(lay);
   const tam = rects[0].w;
-  const y = rects[0].y;
   const segs = segmentCount(s);
 
   for (let i = 0; i < 3; i++) {
     const x = rects[i].x;
+    const y = rects[i].y;
     const p = s.powers[i];
     ctx.fillStyle = 'rgba(226,218,200,0.07)';
     ctx.fillRect(x, y, tam, tam);
+    if (!p) {
+      // Slot vazio: contorno tracejado, para o jogador entender que da
+      // para equipar mais um poder na loja.
+      ctx.save();
+      ctx.strokeStyle = pal.osso;
+      ctx.globalAlpha = 0.18;
+      ctx.setLineDash([tam * 0.1, tam * 0.08]);
+      ctx.lineWidth = Math.max(1, tam * 0.03);
+      ctx.strokeRect(x + tam * 0.12, y + tam * 0.12, tam * 0.76, tam * 0.76);
+      ctx.restore();
+    }
     if (p) {
       const def = POWERS[p.id];
       const custo = custoPoder(s, p.id);
@@ -164,27 +217,29 @@ function drawPoderes(ctx: CanvasRenderingContext2D, lay: Layout, s: GameState, p
     }
   }
 
-  // Botao do Ouroboro, o mais destacado do rodape.
-  const x = rects[3].x;
-  const ow = rects[3].w;
+  // Botao do Ouroboro, o mais destacado do painel.
+  const ob = rects[3];
   const podeOuro = segs - OURO_SEGMENTOS >= MIN_LENGTH;
+  const raio = Math.min(ob.w, ob.h) * 0.34;
+  const ocx = ob.x + ob.w / 2;
+  const ocy = ob.y + ob.h * 0.44;
   ctx.globalAlpha = podeOuro ? 1 : 0.3;
   ctx.strokeStyle = '#D9A441';
-  ctx.lineWidth = Math.max(2, tam * 0.06);
+  ctx.lineWidth = Math.max(2, raio * 0.17);
   ctx.beginPath();
-  ctx.arc(x + ow / 2, y + tam / 2, tam * 0.36, 0.5, Math.PI * 2 - 0.2);
+  ctx.arc(ocx, ocy, raio, 0.5, Math.PI * 2 - 0.2);
   ctx.stroke();
   // A cobra que morde a propria cauda.
   ctx.beginPath();
-  ctx.arc(x + ow / 2 + Math.cos(0.5) * tam * 0.36, y + tam / 2 + Math.sin(0.5) * tam * 0.36, tam * 0.09, 0, Math.PI * 2);
+  ctx.arc(ocx + Math.cos(0.5) * raio, ocy + Math.sin(0.5) * raio, raio * 0.25, 0, Math.PI * 2);
   ctx.fillStyle = '#D9A441';
   ctx.fill();
-  ctx.font = `700 ${Math.floor(tam * 0.2)}px ${FONTE}`;
+  ctx.font = `700 ${Math.floor(Math.min(ob.w, ob.h) * 0.19)}px ${FONTE}`;
   ctx.textAlign = 'center';
-  ctx.fillText(`-${OURO_SEGMENTOS}`, x + ow / 2, y + tam * 0.98);
+  ctx.fillText(`-${OURO_SEGMENTOS}`, ocx, ob.y + ob.h * 0.95);
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
-  atalho(ctx, '4', x, y, tam, pal);
+  atalho(ctx, '4', ob.x, ob.y, Math.min(ob.w, ob.h), pal);
 }
 
 // Numero do atalho no canto da caixinha, dentro de um selo discreto.

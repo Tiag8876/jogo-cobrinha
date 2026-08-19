@@ -17,9 +17,11 @@ const CSS = `
 .ouro-ui{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(12,10,8,0.9);color:#E2DAC8;z-index:10;
   font:400 16px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
-  box-sizing:border-box;overflow:auto;overscroll-behavior:contain}
-.ouro-box{width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;gap:14px}
+  padding:calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  box-sizing:border-box;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+  touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.ouro-box{width:min(560px,100%);display:flex;flex-direction:column;gap:14px;margin:auto 0}
 .ouro-titulo{font-size:clamp(34px,11vw,64px);font-weight:800;letter-spacing:.16em;margin:0;line-height:1}
 .ouro-sub{opacity:.6;margin:0;font-size:13px;letter-spacing:.08em}
 .ouro-lista{display:flex;flex-direction:column;gap:8px}
@@ -88,13 +90,34 @@ const CSS = `
 .ouro-par{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .ouro-tecla{border:1px solid rgba(226,218,200,.24);border-radius:3px;padding:2px 6px;letter-spacing:.06em}
 .ouro-destaque{border-color:rgba(217,164,65,.55);background:rgba(217,164,65,.09)}
-.ouro-dpad{position:fixed;left:calc(10px + env(safe-area-inset-left));
-  bottom:calc(10px + env(safe-area-inset-bottom));width:150px;height:150px;z-index:5;opacity:.5}
-.ouro-dbtn{position:absolute;width:50px;height:50px;background:rgba(226,218,200,.12);
-  border:1px solid rgba(226,218,200,.2);border-radius:4px;padding:0}
-.ouro-d-cima{left:50px;top:0}.ouro-d-esq{left:0;top:50px}
-.ouro-d-dir{left:100px;top:50px}.ouro-d-baixo{left:50px;top:100px}
+.ouro-dpad{position:fixed;left:calc(8px + env(safe-area-inset-left));
+  bottom:calc(8px + env(safe-area-inset-bottom));z-index:5;opacity:.42;touch-action:none}
+.ouro-dbtn{position:absolute;background:rgba(226,218,200,.14);
+  border:1px solid rgba(226,218,200,.22);border-radius:6px;padding:0;touch-action:none}
+.ouro-dbtn:active{background:rgba(217,164,65,.3)}
 @media (prefers-reduced-motion:reduce){.ouro-btn{transition:none}}
+/* Celular deitado: pouca altura, entao tudo encolhe e a grade da loja
+   usa colunas mais estreitas para caber sem rolagem infinita. */
+@media (max-height:480px){
+  .ouro-ui{font-size:14px;padding-top:calc(8px + env(safe-area-inset-top));
+    padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .ouro-box{gap:9px}
+  .ouro-titulo{font-size:clamp(24px,7vw,40px)}
+  .ouro-marca canvas{width:44px;height:44px}
+  .ouro-btn{padding:9px 12px}
+  .ouro-modo{padding:8px 11px;gap:9px}
+  .ouro-modo canvas{width:30px;height:30px}
+  .ouro-modo-txt b{font-size:14.5px}
+  .ouro-modo-txt span{font-size:11px}
+  .ouro-grid{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+  .ouro-card canvas{height:42px}
+  .ouro-lema,.ouro-teclas{display:none}
+}
+/* Tela bem estreita: uma coluna so na loja, para o card nao espremer. */
+@media (max-width:340px){
+  .ouro-grid{grid-template-columns:1fr}
+  .ouro-linha .ouro-btn{min-width:0}
+}
 `;
 
 let cssInjetado = false;
@@ -156,6 +179,27 @@ export class UI {
 
   get aberta(): boolean {
     return this.tela !== 'nenhuma';
+  }
+
+  // Redesenha a tela atual, para o conteudo acompanhar o giro do aparelho
+  // e as previas em canvas nascerem na resolucao nova.
+  reabrir(): void {
+    switch (this.tela) {
+      case 'menu':
+        this.menu();
+        break;
+      case 'loja':
+        this.loja();
+        break;
+      case 'opcoes':
+        this.opcoes();
+        break;
+      case 'pausa':
+        this.pausa();
+        break;
+      default:
+        break;
+    }
   }
 
   // Uma unica raiz, recriada por tela: nenhum listener sobrevive a troca.

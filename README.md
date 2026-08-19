@@ -16,13 +16,14 @@ npm test         # 62 testes de nucleo com vitest
 npm run bench    # relatorio de bundle e teste de estresse em Chromium
 npm run smoke    # smoke funcional: menu, partida, loja, save, mobile 320px
 npm run single   # dist/ouroboro.html, o jogo inteiro em um arquivo so
+npm run responsivo  # 8 formatos de tela, deslize e rolagem no celular
 ```
 
 O `bench` e o `smoke` precisam do Chromium do Playwright, que é devDependency e não entra no bundle.
 
 ## Como se joga
 
-Setas ou WASD movem. As teclas 1, 2 e 3 ativam os poderes equipados e a tecla 4 aciona o Ouroboro (o espaço continua valendo). O teclado numérico funciona igual. Escape pausa. Cada caixinha do rodapé mostra o número do próprio atalho, então a tecla se aprende olhando para a tela. No celular, o swipe reconhece o eixo dominante com limiar baixo, o toque curto aciona o Ouroboro, e existe um d-pad opcional nas opções. Gamepad também funciona.
+Setas ou WASD movem. As teclas 1, 2 e 3 ativam os poderes equipados e a tecla 4 aciona o Ouroboro (o espaço continua valendo). O teclado numérico funciona igual. Escape pausa. Cada caixinha do rodapé mostra o número do próprio atalho, então a tecla se aprende olhando para a tela. No celular o jogo é todo por deslize: o gesto é lido pelo eixo dominante com limiar proporcional à tela (4% do menor lado), e um mesmo arrasto encadeia várias curvas sem levantar o dedo, porque a âncora se move junto. Um toque curto sobre uma das caixinhas do rodapé aciona aquele poder, e em qualquer outro lugar aciona o Ouroboro. Quem preferir botão tem o direcional na tela, nas opções. Gamepad também funciona.
 
 ### As três pressões
 
@@ -71,6 +72,10 @@ Clássico é o jogo puro: paredes matam, corrupção lenta, sem poderes. Ourobor
 **Dilatação estica o tempo real, não a contagem de ticks.** O bullet time multiplica o intervalo de parede entre ticks. A contagem de ticks não muda, então o determinismo do replay continua intacto e o input do jogador segue respondendo na velocidade normal.
 
 **A corrupção resolve o defeito estrutural do Snake.** Sem ela, os primeiros 60 segundos de qualquer partida de Snake são um passeio seguro. Com o mapa apertando sozinho, ficar rodando em círculo deixa de ser uma estratégia.
+
+**A tela do celular manda no layout, não o contrário.** A arena é sempre quadrada, então quase sempre sobra espaço em um dos eixos. Em pé, os poderes ficam no rodapé e a faixa cresce para ocupar a folga, o que dá alvos de toque grandes; o jogo ainda encosta na base da tela, na zona que o polegar alcança. Deitado, o arranjo muda: os poderes viram uma coluna à direita e o placar sobe para junto deles, devolvendo altura para a arena, que senão viraria um selo no meio da tela. As medidas vêm da `visualViewport` e das safe areas lidas em pixels por uma sonda com `env()`, e não de `window.innerHeight`, que mente quando a barra de endereço aparece no iOS.
+
+**O gesto não pode brigar com a interface.** O `touch-action: none` fica no palco do jogo, nunca no documento, e o handler de deslize ignora qualquer toque que comece sobre um menu, sobre um botão ou sobre o direcional. Sem isso a lista da loja não rola no celular, que foi exatamente o bug que o teste de responsividade pegou.
 
 **Nunca comunicar informação só por cor.** A corrupção tem textura ruidosa animada além da cor, a fruta madura pisca e ganha espinhos, a amarga é hexágono, a espelho é losango. Existem três paletas para daltonismo e um modo de alto contraste, mas a leitura do jogo não depende de nenhum deles.
 
@@ -146,8 +151,8 @@ Metas medidas, não presumidas. Rode `npm run bench` para reproduzir.
 
 | Métrica | Meta | Medido |
 | --- | --- | --- |
-| Bundle JS gzip | abaixo de 150 KB | 24,4 KB |
-| Bundle bruto | | 70,6 KB |
+| Bundle JS gzip | abaixo de 150 KB | 25,8 KB |
+| Bundle bruto | | 75,0 KB |
 | Requisições após a carga | zero | zero |
 | Tempo até jogável | abaixo de 1 s | 157 ms |
 | FPS no estresse, 217 segmentos e 372 partículas | 60 | 60,2 |
@@ -160,4 +165,6 @@ O bundle sai em IIFE com base relativa, então roda em subpasta, em `file://` e 
 
 `npm test` roda 58 testes sobre o núcleo puro, cobrindo determinismo byte a byte com a mesma semente, pureza de `step`, o buffer de input contra reversão de 180 graus, frutas que nunca nascem em célula ocupada, poder que não ativa sem segmentos suficientes, Rebobinar restaurando o estado exato de 2 segundos atrás, corrupção que não escapa da grade e save de schema antigo migrando sem quebrar.
 
-`npm run smoke` roda 30 verificações funcionais no bundle de produção em Chromium, em desktop e em 320 px: menu, compra na loja, persistência de opções, partida com sequência de inputs, pausa, encerramento gravando o save, migração de save v1 no boot, ausência de erros de console e ausência de acúmulo de DOM ao trocar de tela.
+`npm run responsivo` verifica 8 formatos de tela, de 320 px até desktop, incluindo celular deitado: confere que o canvas cabe sem rolagem, que o jogo ocupa uma fatia decente da tela, que o deslize responde nas quatro direções em cada aparelho e que a loja rola com o dedo.
+
+`npm run smoke` roda 32 verificações funcionais no bundle de produção em Chromium, em desktop e em 320 px: menu, compra na loja, persistência de opções, partida com sequência de inputs, pausa, encerramento gravando o save, migração de save v1 no boot, ausência de erros de console e ausência de acúmulo de DOM ao trocar de tela.
