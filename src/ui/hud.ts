@@ -20,6 +20,32 @@ export interface Layout {
 
 const FONTE = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+// Geometria do rodape, compartilhada entre o desenho e o teste de toque:
+// indices 0 a 2 sao os poderes, indice 3 e o botao do Ouroboro.
+export function hudRects(lay: Layout): Rect[] {
+  const n = 3;
+  const tam = Math.min(lay.rodape * 0.72, lay.arenaPx / 6);
+  const gap = tam * 0.28;
+  const ow = tam * 1.4;
+  const total = n * tam + (n - 1) * gap + ow;
+  let x = lay.arenaX + (lay.arenaPx - total) / 2;
+  const y = lay.arenaY + lay.arenaPx + lay.rodape * 0.14;
+  const rects: Rect[] = [];
+  for (let i = 0; i < n; i++) {
+    rects.push({ x, y, w: tam, h: tam });
+    x += tam + gap;
+  }
+  rects.push({ x, y, w: ow, h: tam });
+  return rects;
+}
+
 export function drawHud(
   ctx: CanvasRenderingContext2D,
   lay: Layout,
@@ -105,15 +131,13 @@ export function drawHud(
 }
 
 function drawPoderes(ctx: CanvasRenderingContext2D, lay: Layout, s: GameState, pal: Paleta): void {
-  const n = 3;
-  const tam = Math.min(lay.rodape * 0.72, lay.arenaPx / 6);
-  const gap = tam * 0.28;
-  const total = n * tam + (n - 1) * gap + tam * 1.4;
-  let x = lay.arenaX + (lay.arenaPx - total) / 2;
-  const y = lay.arenaY + lay.arenaPx + lay.rodape * 0.14;
+  const rects = hudRects(lay);
+  const tam = rects[0].w;
+  const y = rects[0].y;
   const segs = segmentCount(s);
 
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < 3; i++) {
+    const x = rects[i].x;
     const p = s.powers[i];
     ctx.fillStyle = 'rgba(226,218,200,0.07)';
     ctx.fillRect(x, y, tam, tam);
@@ -141,11 +165,11 @@ function drawPoderes(ctx: CanvasRenderingContext2D, lay: Layout, s: GameState, p
       ctx.fillText(String(i + 1), x + tam * 0.08, y + tam * 0.22);
       ctx.globalAlpha = 1;
     }
-    x += tam + gap;
   }
 
   // Botao do Ouroboro, o mais destacado do rodape.
-  const ow = tam * 1.4;
+  const x = rects[3].x;
+  const ow = rects[3].w;
   const podeOuro = segs - OURO_SEGMENTOS >= MIN_LENGTH;
   ctx.globalAlpha = podeOuro ? 1 : 0.3;
   ctx.strokeStyle = '#D9A441';

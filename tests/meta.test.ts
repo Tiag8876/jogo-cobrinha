@@ -132,13 +132,42 @@ describe('fantasma e diario', () => {
     const sim = new Sim(base);
     for (let i = 0; i < 60; i++) {
       const cmd: Command | null = i % 9 === 0 ? { kind: 'turn', dir: (((i / 9) + 1) % 4) as 0 | 1 | 2 | 3 } : null;
-      gravador.record(sim.state.tick, cmd);
+      gravador.record(cmd);
       sim.advance(cmd);
     }
     const data = gravador.build({ ...base, score: sim.state.score });
 
     const player = new GhostPlayer(data);
     for (let i = 0; i < 60; i++) player.advance();
+    expect(player.state.body).toEqual(sim.state.body);
+    expect(player.state.score).toBe(sim.state.score);
+  });
+
+  it('o replay sobrevive a um Rebobinar no meio da run', () => {
+    // Regressao: o gravador indexava por tick, que anda para tras no
+    // Rebobinar, e o replay consumia comandos futuros de uma vez.
+    const base = { seed: 555, mode: 'ouroboro' as const, powers: ['rebobinar' as const], relics: [] };
+    const gravador = new GhostRecorder();
+    const sim = new Sim(base);
+    sim.state.faseTimer = 100000;
+    sim.state.growth = 30;
+    for (let i = 0; i < 90; i++) {
+      const cmd: Command | null =
+        i === 60
+          ? { kind: 'power', slot: 0 }
+          : i % 11 === 0
+            ? { kind: 'turn', dir: (((i / 11) + 1) % 4) as 0 | 1 | 2 | 3 }
+            : null;
+      gravador.record(cmd);
+      sim.advance(cmd);
+    }
+    const data = gravador.build({ ...base, score: sim.state.score });
+
+    const player = new GhostPlayer(data);
+    player.state.faseTimer = 100000;
+    player.state.growth = 30;
+    for (let i = 0; i < 90; i++) player.advance();
+    expect(player.state.tick).toBe(sim.state.tick);
     expect(player.state.body).toEqual(sim.state.body);
     expect(player.state.score).toBe(sim.state.score);
   });

@@ -4,6 +4,7 @@ import type { GameState, RunOptions } from '../src/core/state';
 import { step } from '../src/core/step';
 import { Sim } from '../src/core/sim';
 import { podeAtivar, ativarPoder, ouroboro } from '../src/core/powers';
+import { bodyContains } from '../src/core/state';
 import { setCorrupt, isCorrupt } from '../src/core/corruption';
 import { POWERS, MIN_LENGTH } from '../src/core/config';
 
@@ -128,6 +129,42 @@ describe('efeitos', () => {
       const depois = Math.abs(s.fruits[0].x - s.body[0]) + Math.abs(s.fruits[0].y - s.body[1]);
       expect(depois).toBeLessThan(antes);
     }
+  });
+});
+
+describe('regressoes', () => {
+  it('o Dash come as frutas que atravessa', () => {
+    const s = createInitialState(opts({ powers: ['dash'] }));
+    cobraEm(s, 8, 14, 12);
+    s.fruits = [
+      { x: 10, y: 14, kind: 'comum', age: 0 },
+      { x: 13, y: 14, kind: 'comum', age: 0 },
+    ];
+    const score = s.score;
+    ativarPoder(s, 0);
+    expect(s.fruits.length).toBe(0);
+    expect(s.score).toBeGreaterThan(score);
+  });
+
+  it('o Ima nunca arrasta fruta para cima do corpo', () => {
+    let s = createInitialState(opts({ powers: ['ima'] }));
+    s = crescer(s, 12);
+    ativarPoder(s, 0);
+    for (let i = 0; i < 10 && s.alive; i++) {
+      s = step(s, null);
+      for (const f of s.fruits) {
+        expect(bodyContains(s, f.x, f.y)).toBe(false);
+      }
+    }
+  });
+
+  it('duracoes em segundos escalam com a velocidade', () => {
+    let s = createInitialState(opts({ powers: ['fase'] }));
+    s = crescer(s, 8);
+    s.score = 500; // intensidade no teto: 16 tps
+    ativarPoder(s, 0);
+    // 2,5 s a 16 tps sao 40 ticks, nao os 20 calibrados a 8 tps.
+    expect(s.faseTimer).toBe(40);
   });
 });
 

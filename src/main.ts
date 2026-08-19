@@ -27,7 +27,7 @@ import type { ViewOpts } from './render/renderer';
 import { buildPaleta } from './render/palette';
 import type { Paleta } from './render/palette';
 import { emit, updateParticles, clearParticles, KIND_PONTO, KIND_QUADRADO, KIND_RISCO, particleCount } from './render/particles';
-import { drawHud } from './ui/hud';
+import { drawHud, hudRects } from './ui/hud';
 import type { Layout } from './ui/hud';
 import { UI } from './ui/menus';
 import { load, save } from './meta/save';
@@ -259,8 +259,10 @@ function encerrar(voluntario: boolean): void {
   const novoRecorde = s.score > rec;
   if (novoRecorde) saveData.recordes[modoAtual] = s.score;
 
-  // Grava o fantasma quando a run e a melhor de todas.
-  if (novoRecorde && s.score > 0) {
+  // Grava o fantasma quando a run e a melhor de todas, e apenas nos
+  // modos cujas regras batem com as do replay: um recorde no Classico
+  // ou no Aperto nao pode sobrescrever o fantasma do modo principal.
+  if (novoRecorde && s.score > 0 && (modoAtual === 'ouroboro' || modoAtual === 'fantasma')) {
     saveData.ghost = gravador.build({
       mode: modoAtual,
       seed: 0,
@@ -436,7 +438,7 @@ function frame(now: number): void {
     let passos = 0;
     while (acc >= dt && passos < 6) {
       const cmd: Command | null = fila.consume();
-      gravador.record(sim.state.tick, cmd);
+      gravador.record(cmd);
       const novo = sim.advance(cmd);
       if (ghost) ghost.advance();
       acc -= dt;
@@ -482,7 +484,10 @@ function desenhar(): void {
     view.morte = morte;
     view.ghost = ghost ? ghost.body : null;
 
-    const dt = 1000 / ticksPerSecond(sim.state);
+    // O mesmo dt esticado do simulador: sem isso, durante a Dilatacao o
+    // alpha satura em 1 e a cobra anda em soquinhos no bullet time.
+    const escala = sim.state.dilatacaoTimer > 0 ? 0.35 : 1;
+    const dt = 1000 / (ticksPerSecond(sim.state) * escala);
     const alpha = reduz ? 1 : Math.max(0, Math.min(1, acc / dt));
 
     c.save();
@@ -522,7 +527,23 @@ function desenhar(): void {
 
 // Wiring de entrada e ciclo de vida.
 attachKeyboard(sink);
-attachTouch(document.body, sink);
+attachTouch(document.body, sink, (clientX, clientY) => {
+  if (!rodando || pausado || !sim) return;
+  // Converte o toque de coordenadas de CSS para as do canvas.
+  const r = canvas.getBoundingClientRect();
+  const px = ((clientX - r.left) / r.width) * canvas.width;
+  const py = ((clientY - r.top) / r.height) * canvas.height;
+  const rects = hudRects(lay);
+  for (let i = 0; i < 3; i++) {
+    const b = rects[i];
+    if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
+      sink.power(i);
+      return;
+    }
+  }
+  // Qualquer outro toque curto e o Ouroboro, o botao de tela inteira.
+  sink.ouroboro();
+});
 window.addEventListener('resize', () => computeLayout());
 window.addEventListener('orientationchange', () => computeLayout());
 window.addEventListener('blur', () => pausar());

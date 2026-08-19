@@ -6,11 +6,6 @@ import {
   DY,
   segmentCount,
   insideArena,
-  comboJanela,
-  EV_COMEU,
-  EV_MADURA,
-  EV_AMARGA,
-  EV_ESPELHO,
   EV_OURO,
   EV_CORRUPCAO_PAGA,
   EV_MORTE,
@@ -20,15 +15,14 @@ import {
 } from './state';
 import {
   MODES,
-  COMBO_MAX,
-  MIN_LENGTH,
   MADURA_APOS,
+  MIN_LENGTH,
   CORRUPCAO_CUSTO,
   POWERS,
 } from './config';
 import { ensureFruits } from './spawn';
 import { isCorrupt, clearCorrupt, setCorrupt, spreadCorruption } from './corruption';
-import { ativarPoder, ouroboro, aplicarIma } from './powers';
+import { ativarPoder, ouroboro, aplicarIma, comerEm } from './powers';
 
 // Funcao pura: (estado, comando) => proximo estado.
 // Nunca muta a entrada. Sem DOM, sem Canvas, sem Date, sem Math.random.
@@ -128,57 +122,13 @@ function moverCabeca(s: GameState, paredesMatam: boolean, corrupcaoMata: boolean
     }
   }
 
-  comer(s, nx, ny);
+  comerEm(s, nx, ny);
 
   s.body.unshift(nx, ny);
   if (s.growth > 0) s.growth--;
   else s.body.length -= 2;
 
   if (segmentCount(s) < MIN_LENGTH) matar(s, 'fome');
-}
-
-function comer(s: GameState, nx: number, ny: number): void {
-  for (let i = 0; i < s.fruits.length; i++) {
-    const f = s.fruits[i];
-    if (f.x !== nx || f.y !== ny) continue;
-    s.fruits.splice(i, 1);
-    s.lastEatX = nx;
-    s.lastEatY = ny;
-    s.events |= EV_COMEU;
-
-    const mult = s.espelhoTimer > 0 ? s.combo * 2 : s.combo;
-    switch (f.kind) {
-      case 'comum':
-        s.growth += 1;
-        s.coins += 1 * mult;
-        s.score += 1 * mult;
-        break;
-      case 'madura':
-        s.growth += 2;
-        s.coins += 3 * mult;
-        s.score += 3 * mult;
-        s.events |= EV_MADURA;
-        break;
-      case 'amarga': {
-        // Recurso, nao punicao: custa 2 segmentos e recarrega tudo.
-        const corte = Math.min(2, Math.max(0, segmentCount(s) - MIN_LENGTH));
-        s.body.length -= corte * 2;
-        for (let p = 0; p < s.powers.length; p++) s.powers[p].cd = 0;
-        s.coins += 2 * mult;
-        s.events |= EV_AMARGA;
-        break;
-      }
-      case 'espelho':
-        s.espelhoTimer = 40;
-        s.coins += 2 * mult;
-        s.events |= EV_ESPELHO;
-        break;
-    }
-
-    if (s.combo < COMBO_MAX) s.combo++;
-    s.comboTimer = comboJanela(s);
-    return;
-  }
 }
 
 // Frutas amadurecem paradas e depois apodrecem virando corrupcao.

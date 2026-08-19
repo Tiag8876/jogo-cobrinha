@@ -2,12 +2,15 @@ import type { InputSink } from './keyboard';
 import type { Dir } from '../core/state';
 
 // Swipe tolerante: reconhece pelo eixo dominante com limiar baixo,
-// sem exigir precisao. Toque curto sem arrasto dispara o Ouroboro.
+// sem exigir precisao. Toque curto sem arrasto vira um tap com
+// coordenadas: o main decide se acertou um botao do HUD ou o Ouroboro.
 
 const LIMIAR = 18; // px
 const TOQUE_CURTO_MS = 220;
 
-export function attachTouch(alvo: HTMLElement, sink: InputSink): () => void {
+export type TapHandler = (clientX: number, clientY: number) => void;
+
+export function attachTouch(alvo: HTMLElement, sink: InputSink, onTap: TapHandler): () => void {
   let x0 = 0;
   let y0 = 0;
   let t0 = 0;
@@ -46,7 +49,7 @@ export function attachTouch(alvo: HTMLElement, sink: InputSink): () => void {
     const dx = t.clientX - x0;
     const dy = t.clientY - y0;
     if (e.timeStamp - t0 < TOQUE_CURTO_MS && Math.abs(dx) < LIMIAR && Math.abs(dy) < LIMIAR) {
-      sink.ouroboro();
+      onTap(t.clientX, t.clientY);
     }
   };
 

@@ -20,13 +20,17 @@ export function decodeCommand(code: number): Command | null {
   return null;
 }
 
-// Grava so os ticks com comando: a run inteira cabe em poucos KB.
+// Grava so os passos com comando: a run inteira cabe em poucos KB.
+// O indice e a contagem monotonica de passos, nunca o tick do estado:
+// o Rebobinar faz o tick voltar, e um indice nao monotonico faria o
+// replay consumir comandos futuros de uma vez.
 export class GhostRecorder {
   private pares: number[] = [];
+  private passo = 0;
 
-  record(tick: number, cmd: Command | null): void {
-    if (!cmd) return;
-    this.pares.push(tick, encodeCommand(cmd));
+  record(cmd: Command | null): void {
+    if (cmd) this.pares.push(this.passo, encodeCommand(cmd));
+    this.passo++;
   }
 
   build(base: Omit<GhostData, 'inputs'>): GhostData {
@@ -35,6 +39,7 @@ export class GhostRecorder {
 
   reset(): void {
     this.pares.length = 0;
+    this.passo = 0;
   }
 }
 
@@ -43,6 +48,7 @@ export class GhostPlayer {
   private sim: Sim;
   private pares: number[];
   private cursor = 0;
+  private passo = 0;
   readonly valido: boolean;
 
   constructor(data: GhostData | null) {
@@ -59,12 +65,12 @@ export class GhostPlayer {
 
   advance(): void {
     if (!this.valido || !this.sim.state.alive) return;
-    const tick = this.sim.state.tick;
     let cmd: Command | null = null;
-    while (this.cursor < this.pares.length && this.pares[this.cursor] <= tick) {
+    if (this.cursor < this.pares.length && this.pares[this.cursor] === this.passo) {
       cmd = decodeCommand(this.pares[this.cursor + 1]);
       this.cursor += 2;
     }
+    this.passo++;
     this.sim.advance(cmd);
   }
 

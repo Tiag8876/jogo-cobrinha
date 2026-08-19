@@ -232,6 +232,12 @@ export function ticksPerSecond(s: GameState): number {
   return TPS_BASE + (TPS_MAX - TPS_BASE) * t;
 }
 
+// Converte uma duracao calibrada a 8 tps para a velocidade atual, para
+// que efeitos prometidos em segundos durem os mesmos segundos sempre.
+export function ticksReais(s: GameState, baseA8tps: number): number {
+  return Math.max(1, Math.round((baseA8tps * ticksPerSecond(s)) / TPS_BASE));
+}
+
 export function comboJanela(s: GameState): number {
   return s.relics.indexOf('fome') >= 0 ? Math.round(COMBO_JANELA * 0.7) : COMBO_JANELA;
 }
