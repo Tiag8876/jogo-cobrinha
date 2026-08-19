@@ -12,7 +12,7 @@ Zero dependências de runtime. TypeScript, Vite e Canvas 2D, nada mais. O bundle
 npm install
 npm run dev      # servidor de desenvolvimento
 npm run build    # typecheck e bundle de producao em dist/
-npm test         # 58 testes de nucleo com vitest
+npm test         # 62 testes de nucleo com vitest
 npm run bench    # relatorio de bundle e teste de estresse em Chromium
 npm run smoke    # smoke funcional: menu, partida, loja, save, mobile 320px
 npm run single   # dist/ouroboro.html, o jogo inteiro em um arquivo so
@@ -22,7 +22,7 @@ O `bench` e o `smoke` precisam do Chromium do Playwright, que é devDependency e
 
 ## Como se joga
 
-Setas ou WASD movem. As teclas 1, 2 e 3 ativam os poderes equipados. Espaço aciona o Ouroboro. Escape pausa. No celular, o swipe reconhece o eixo dominante com limiar baixo, o toque curto aciona o Ouroboro, e existe um d-pad opcional nas opções. Gamepad também funciona.
+Setas ou WASD movem. As teclas 1, 2 e 3 ativam os poderes equipados e a tecla 4 aciona o Ouroboro (o espaço continua valendo). O teclado numérico funciona igual. Escape pausa. Cada caixinha do rodapé mostra o número do próprio atalho, então a tecla se aprende olhando para a tela. No celular, o swipe reconhece o eixo dominante com limiar baixo, o toque curto aciona o Ouroboro, e existe um d-pad opcional nas opções. Gamepad também funciona.
 
 ### As três pressões
 
@@ -146,8 +146,8 @@ Metas medidas, não presumidas. Rode `npm run bench` para reproduzir.
 
 | Métrica | Meta | Medido |
 | --- | --- | --- |
-| Bundle JS gzip | abaixo de 150 KB | 20,0 KB |
-| Bundle bruto | | 55,3 KB |
+| Bundle JS gzip | abaixo de 150 KB | 24,4 KB |
+| Bundle bruto | | 70,6 KB |
 | Requisições após a carga | zero | zero |
 | Tempo até jogável | abaixo de 1 s | 157 ms |
 | FPS no estresse, 217 segmentos e 372 partículas | 60 | 60,2 |

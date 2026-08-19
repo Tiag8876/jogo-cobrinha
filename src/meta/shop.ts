@@ -2,6 +2,7 @@ import type { SaveData } from './save';
 import type { PowerId, RelicId } from '../core/config';
 import { POWERS, RELICS } from '../core/config';
 import { SKINS, skinById } from '../render/skins/defs';
+import { FORMA, RASTRO, OLHO } from '../ui/textos';
 
 // Regra dura: skin nunca da vantagem. Toda vantagem mora nas Reliquias.
 
@@ -22,7 +23,7 @@ export function listarSkins(s: SaveData): ShopItem[] {
     tipo: 'skin' as const,
     id: sk.id,
     nome: sk.nome,
-    desc: `forma ${sk.forma}, rastro ${sk.rastro}, olho ${sk.olho}. Sem efeito no jogo`,
+    desc: `Forma ${FORMA[sk.forma]}, rastro de ${RASTRO[sk.rastro]}, olho de ${OLHO[sk.olho]}. Sem efeito nas regras`,
     preco: sk.preco,
     comprado: s.skinsDesbloqueadas.indexOf(sk.id) >= 0,
     equipado: s.skinEquipada === sk.id,

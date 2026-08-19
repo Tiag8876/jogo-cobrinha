@@ -160,10 +160,7 @@ function drawPoderes(ctx: CanvasRenderingContext2D, lay: Layout, s: GameState, p
       ctx.textAlign = 'center';
       ctx.fillText(`-${custo}`, x + tam / 2, y + tam * 0.92);
       ctx.textAlign = 'left';
-      ctx.globalAlpha = 0.5;
-      ctx.font = `400 ${Math.floor(tam * 0.2)}px ${FONTE}`;
-      ctx.fillText(String(i + 1), x + tam * 0.08, y + tam * 0.22);
-      ctx.globalAlpha = 1;
+      atalho(ctx, String(i + 1), x, y, tam, pal);
     }
   }
 
@@ -187,6 +184,39 @@ function drawPoderes(ctx: CanvasRenderingContext2D, lay: Layout, s: GameState, p
   ctx.fillText(`-${OURO_SEGMENTOS}`, x + ow / 2, y + tam * 0.98);
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
+  atalho(ctx, '4', x, y, tam, pal);
+}
+
+// Numero do atalho no canto da caixinha, dentro de um selo discreto.
+function atalho(
+  ctx: CanvasRenderingContext2D,
+  txt: string,
+  x: number,
+  y: number,
+  tam: number,
+  pal: Paleta,
+): void {
+  const r = tam * 0.15;
+  const cx = x + r + tam * 0.06;
+  const cy = y + r + tam * 0.06;
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = 'rgba(22,19,15,0.75)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = pal.osso;
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = pal.osso;
+  ctx.font = `700 ${Math.floor(tam * 0.19)}px ${FONTE}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(txt, cx, cy + tam * 0.005);
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.globalAlpha = 1;
 }
 
 // Icones vetoriais, sem sprite e sem emoji. Exportado para a loja

@@ -28,9 +28,12 @@ export function attachKeyboard(sink: InputSink): () => void {
       sink.dir(dir);
       return;
     }
-    if (e.code === 'Digit1') sink.power(0);
-    else if (e.code === 'Digit2') sink.power(1);
-    else if (e.code === 'Digit3') sink.power(2);
+    // Atalhos numericos do rodape: 1 a 3 sao os poderes, 4 e o Ouroboro.
+    // Numpad vale igual, e o espaco segue como atalho do Ouroboro.
+    if (e.code === 'Digit1' || e.code === 'Numpad1') sink.power(0);
+    else if (e.code === 'Digit2' || e.code === 'Numpad2') sink.power(1);
+    else if (e.code === 'Digit3' || e.code === 'Numpad3') sink.power(2);
+    else if (e.code === 'Digit4' || e.code === 'Numpad4') sink.ouroboro();
     else if (e.code === 'Space') {
       e.preventDefault();
       sink.ouroboro();

@@ -1,5 +1,5 @@
 import type { SkinDef } from '../render/skins/types';
-import type { RelicId } from '../core/config';
+import type { RelicId, ModeId } from '../core/config';
 
 // Previas da loja, desenhadas em canvas pequenos: a mini cobra de cada
 // skin e os icones das reliquias. Nada de PNG e nada de emoji.
@@ -204,6 +204,99 @@ export function drawRelicIcon(canvas: HTMLCanvasElement, id: RelicId, cor: strin
       ctx.arc(cx + r * 0.8, cy + r * 0.8, r * 0.2, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+      break;
+    }
+  }
+}
+
+// Icones dos modos no menu: cada um conta a regra que o define.
+export function drawModeIcon(canvas: HTMLCanvasElement, id: ModeId, cor: string): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(w, h) * 0.3;
+  ctx.strokeStyle = cor;
+  ctx.fillStyle = cor;
+  ctx.lineWidth = Math.max(2, r * 0.2);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  switch (id) {
+    case 'ouroboro': {
+      // A cobra que morde a propria cauda
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0.55, Math.PI * 2 - 0.15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(0.55) * r, cy + Math.sin(0.55) * r, r * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'classico': {
+      // Grade fechada por paredes
+      ctx.strokeRect(cx - r, cy - r, r * 2, r * 2);
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = Math.max(1, r * 0.1);
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.33, cy - r);
+      ctx.lineTo(cx - r * 0.33, cy + r);
+      ctx.moveTo(cx + r * 0.33, cy - r);
+      ctx.lineTo(cx + r * 0.33, cy + r);
+      ctx.moveTo(cx - r, cy - r * 0.33);
+      ctx.lineTo(cx + r, cy - r * 0.33);
+      ctx.moveTo(cx - r, cy + r * 0.33);
+      ctx.lineTo(cx + r, cy + r * 0.33);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'diario': {
+      // Folha de calendario
+      ctx.strokeRect(cx - r, cy - r * 0.8, r * 2, r * 1.7);
+      ctx.beginPath();
+      ctx.moveTo(cx - r, cy - r * 0.25);
+      ctx.lineTo(cx + r, cy - r * 0.25);
+      ctx.moveTo(cx - r * 0.5, cy - r * 1.15);
+      ctx.lineTo(cx - r * 0.5, cy - r * 0.55);
+      ctx.moveTo(cx + r * 0.5, cy - r * 1.15);
+      ctx.lineTo(cx + r * 0.5, cy - r * 0.55);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy + r * 0.35, r * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'fantasma': {
+      // Duas cobras, uma translucida
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.arc(cx - r * 0.75, cy - r * 0.3, r * 0.42, 0, Math.PI * 2);
+      ctx.arc(cx, cy - r * 0.3, r * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(cx - r * 0.3, cy + r * 0.55, r * 0.42, 0, Math.PI * 2);
+      ctx.arc(cx + r * 0.5, cy + r * 0.55, r * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'aperto': {
+      // Quatro setas apontando para dentro
+      ctx.strokeRect(cx - r * 0.45, cy - r * 0.45, r * 0.9, r * 0.9);
+      const seta = (dx: number, dy: number): void => {
+        ctx.beginPath();
+        ctx.moveTo(cx + dx * r * 1.25, cy + dy * r * 1.25);
+        ctx.lineTo(cx + dx * r * 0.7, cy + dy * r * 0.7);
+        ctx.stroke();
+      };
+      seta(-1, 0);
+      seta(1, 0);
+      seta(0, -1);
+      seta(0, 1);
       break;
     }
   }

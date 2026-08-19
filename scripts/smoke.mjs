@@ -44,8 +44,8 @@ for (const [rotulo, viewport, isMobile] of [
   await page.goto(base, { waitUntil: 'load' });
 
   // Menu inicial com os cinco modos
-  const modos = await page.locator('.ouro-btn b').allTextContents();
-  ok(`${rotulo}: menu lista os modos`, ['Ouroboro', 'Classico', 'Desafio Diario', 'Fantasma', 'Aperto'].every((m) => modos.includes(m)));
+  const modos = await page.locator('.ouro-modo-txt b').allTextContents();
+  ok(`${rotulo}: menu lista os modos`, ['Ouroboro', 'Clássico', 'Desafio Diário', 'Fantasma', 'Aperto'].every((m) => modos.includes(m)));
 
   // Loja com as tres abas e compra
   await page.getByText('Loja', { exact: true }).first().click();
@@ -59,7 +59,7 @@ for (const [rotulo, viewport, isMobile] of [
   await page.getByText('Loja', { exact: true }).first().click();
   await page.locator('.ouro-abas .ouro-btn').nth(2).click(); // Reliquias
   const antesMoedas = await page.evaluate(() => JSON.parse(localStorage.getItem('ouroboro.save')).coins);
-  await page.locator('.ouro-lista .ouro-btn').first().click();
+  await page.locator('.ouro-grid .ouro-btn').first().click();
   const depoisMoedas = await page.evaluate(() => JSON.parse(localStorage.getItem('ouroboro.save')).coins);
   ok(`${rotulo}: comprar reliquia desconta moedas`, depoisMoedas < antesMoedas, `${antesMoedas} para ${depoisMoedas}`);
   const relics = await page.evaluate(() => JSON.parse(localStorage.getItem('ouroboro.save')).reliquiasEquipadas);
@@ -67,7 +67,7 @@ for (const [rotulo, viewport, isMobile] of [
 
   // Opcoes persistem
   await page.getByText('Voltar', { exact: true }).click();
-  await page.getByText('Opcoes', { exact: true }).first().click();
+  await page.getByText('Opções', { exact: true }).first().click();
   await page.getByText('Alto contraste', { exact: true }).click();
   const contraste = await page.evaluate(() => JSON.parse(localStorage.getItem('ouroboro.save')).opcoes.altoContraste);
   ok(`${rotulo}: opcao persiste no save`, contraste === true);
@@ -113,7 +113,7 @@ for (const [rotulo, viewport, isMobile] of [
   // Sai da run e confere que as moedas foram para o save
   await page.keyboard.press('Escape');
   await page.waitForTimeout(120);
-  await page.getByText('Sair da run', { exact: true }).click();
+  await page.getByText('Sair da partida', { exact: true }).click();
   await page.waitForTimeout(200);
   const salvo = await page.evaluate(() => JSON.parse(localStorage.getItem('ouroboro.save')));
   ok(`${rotulo}: run encerrada grava o save`, typeof salvo.coins === 'number');
@@ -129,6 +129,8 @@ for (const [rotulo, viewport, isMobile] of [
   const nosDepois = await page.evaluate(() => document.querySelectorAll('.ouro-ui *').length);
   ok(`${rotulo}: trocar de tela nao acumula DOM`, nosDepois === nosAntes, `${nosAntes} para ${nosDepois}`);
   ok(`${rotulo}: uma unica raiz de UI`, (await page.locator('.ouro-ui').count()) === 1);
+  const acentos = await page.evaluate(() => document.querySelector('.ouro-ui').innerText);
+  ok(`${rotulo}: interface acentuada em portugues`, /ç|á|ã|é|í|ó|ú/.test(acentos));
   ok(`${rotulo}: sem erro de console`, erros.length === 0, erros.join(' | '));
   await page.close();
 }
@@ -144,7 +146,7 @@ await page.evaluate(() => {
 await page.reload({ waitUntil: 'load' });
 await page.waitForTimeout(200);
 const migrado = await page.evaluate(() => JSON.parse(localStorage.getItem('ouroboro.save') ?? '{}'));
-const texto = await page.locator('.ouro-moedas').first().textContent();
+const texto = await page.locator('.ouro-chip-moeda').first().innerText();
 ok('save v1 migra no boot sem quebrar', texto.includes('777'), texto);
 ok('save v1 nao derruba a pagina', erros2.length === 0, erros2.join(' | '));
 ok('migracao preserva moedas em memoria', migrado.coins === undefined || migrado.coins === 777);

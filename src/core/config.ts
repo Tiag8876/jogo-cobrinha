@@ -19,7 +19,7 @@ export const POWERS: Record<PowerId, PowerDef> = {
     custo: 4,
     cooldown: 80,
     duracao: 20,
-    desc: 'Atravessa o proprio corpo e as paredes por 2,5 s',
+    desc: 'Atravessa o próprio corpo e as paredes por 2,5 s',
     preco: 0,
   },
   dash: {
@@ -28,7 +28,7 @@ export const POWERS: Record<PowerId, PowerDef> = {
     custo: 2,
     cooldown: 40,
     duracao: 0,
-    desc: 'Avanca 6 celulas e limpa a corrupcao do caminho',
+    desc: 'Avança 6 células e limpa a corrupção do caminho',
     preco: 0,
   },
   rebobinar: {
@@ -37,16 +37,16 @@ export const POWERS: Record<PowerId, PowerDef> = {
     custo: 8,
     cooldown: 200,
     duracao: 0,
-    desc: 'Volta o jogo 2 segundos. Anti morte caro de proposito',
+    desc: 'Volta o jogo 2 segundos. Anti morte, caro de propósito',
     preco: 900,
   },
   ima: {
     id: 'ima',
-    nome: 'Ima',
+    nome: 'Ímã',
     custo: 3,
     cooldown: 90,
     duracao: 24,
-    desc: 'Puxa as frutas em raio 6 para a cabeca por 3 s',
+    desc: 'Puxa as frutas em raio 6 para a cabeça por 3 s',
     preco: 260,
   },
   onda: {
@@ -55,16 +55,16 @@ export const POWERS: Record<PowerId, PowerDef> = {
     custo: 5,
     cooldown: 120,
     duracao: 0,
-    desc: 'Limpa a corrupcao em raio 5 e empurra o resto',
+    desc: 'Limpa a corrupção em raio 5 e empurra o resto',
     preco: 420,
   },
   dilatacao: {
     id: 'dilatacao',
-    nome: 'Dilatacao',
+    nome: 'Dilatação',
     custo: 4,
     cooldown: 140,
     duracao: 24,
-    desc: 'O mundo roda a 35% da velocidade por 3 s',
+    desc: 'O mundo roda a 35% da velocidade por 3 s, o input segue normal',
     preco: 640,
   },
   semear: {
@@ -94,7 +94,7 @@ export const RELICS: Record<RelicId, RelicDef> = {
   casca: {
     id: 'casca',
     nome: 'Casca Dura',
-    desc: 'Sobrevive a primeira colisao perdendo metade dos segmentos',
+    desc: 'Sobrevive à primeira colisão perdendo metade dos segmentos',
     preco: 520,
   },
   metabolismo: {
@@ -106,13 +106,13 @@ export const RELICS: Record<RelicId, RelicDef> = {
   simbiose: {
     id: 'simbiose',
     nome: 'Simbiose',
-    desc: 'A corrupcao deixa moedas ao ser limpa',
+    desc: 'A corrupção deixa moedas ao ser limpa',
     preco: 300,
   },
   fome: {
     id: 'fome',
     nome: 'Fome',
-    desc: 'Multiplicador comeca em x2, mas o timer de combo e 30% menor',
+    desc: 'Multiplicador começa em x2, mas o timer de combo é 30% menor',
     preco: 760,
   },
   muda: {
@@ -143,8 +143,8 @@ export interface ModeDef {
 export const MODES: Record<ModeId, ModeDef> = {
   classico: {
     id: 'classico',
-    nome: 'Classico',
-    desc: 'Paredes matam, corrupcao lenta, sem poderes. O jogo puro',
+    nome: 'Clássico',
+    desc: 'Paredes matam, corrupção lenta, sem poderes. O jogo puro',
     paredesMatam: true,
     poderesLigados: false,
     corrupcaoMata: true,
@@ -167,7 +167,7 @@ export const MODES: Record<ModeId, ModeDef> = {
   },
   diario: {
     id: 'diario',
-    nome: 'Desafio Diario',
+    nome: 'Desafio Diário',
     desc: 'Semente do dia. Todo mundo joga o mesmo mapa',
     paredesMatam: true,
     poderesLigados: true,
@@ -180,7 +180,7 @@ export const MODES: Record<ModeId, ModeDef> = {
   fantasma: {
     id: 'fantasma',
     nome: 'Fantasma',
-    desc: 'Sua melhor run corre junto como uma cobra translucida',
+    desc: 'Sua melhor partida corre junto como uma cobra translúcida',
     paredesMatam: true,
     poderesLigados: true,
     corrupcaoMata: false,

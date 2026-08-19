@@ -34,6 +34,7 @@ import { load, save } from './meta/save';
 import type { SaveData } from './meta/save';
 import { skinAtual } from './meta/shop';
 import { GhostRecorder, GhostPlayer, seedDoDia, dataISO } from './meta/ghost';
+import { demoCommand } from './meta/demo';
 import { attachKeyboard } from './input/keyboard';
 import type { InputSink } from './input/keyboard';
 import { attachTouch, buildDpad } from './input/touch';
@@ -111,6 +112,10 @@ computeLayout();
 
 // Estado do app
 let sim: Sim | null = null;
+// Demonstracao que roda atras do menu, so para o jogo nunca aparecer
+// parado. Usa o mesmo nucleo com um piloto automatico simples.
+let demo: Sim | null = null;
+let demoAcc = 0;
 let ghost: GhostPlayer | null = null;
 let gravador = new GhostRecorder();
 let modoAtual: ModeId = 'ouroboro';
@@ -262,6 +267,17 @@ function atualizarDpad(): void {
   }
 }
 
+function novaDemo(): void {
+  demo = new Sim({
+    seed: (Math.random() * 0xffffffff) >>> 0,
+    mode: 'ouroboro',
+    powers: [],
+    relics: [],
+  });
+  demo.state.growth = 6;
+  demoAcc = 0;
+}
+
 function iniciar(mode: ModeId): void {
   initAudio();
   modoAtual = mode;
@@ -289,6 +305,7 @@ function iniciar(mode: ModeId): void {
   hitstopAte = 0;
   rodando = true;
   pausado = false;
+  demo = null;
   limparRun();
   ui.esconder();
   atualizarDpad();
@@ -542,6 +559,25 @@ function frame(now: number): void {
     }
   }
 
+  // A demo do menu roda em ritmo fixo e baixo, longe do orcamento do jogo.
+  if (!rodando && ui.aberta) {
+    if (!demo) novaDemo();
+    if (demo) {
+      demoAcc += elapsed;
+      const dtDemo = 1000 / 7;
+      let passos = 0;
+      while (demoAcc >= dtDemo && passos < 3) {
+        demo.advance(demoCommand(demo.state));
+        demoAcc -= dtDemo;
+        passos++;
+        if (!demo.state.alive) {
+          novaDemo();
+          break;
+        }
+      }
+    }
+  }
+
   // Amortece o game feel.
   shake = Math.max(0, shake - elapsed / 320);
   const comboAlvo = sim ? 1 + (Math.min(sim.state.combo, COMBO_MAX) / COMBO_MAX) * 0.04 : 1;
@@ -594,7 +630,22 @@ function desenhar(): void {
   } else {
     c.save();
     c.translate(lay.arenaX, lay.arenaY);
-    c.drawImage(layer.grade, 0, 0);
+    c.beginPath();
+    c.rect(0, 0, lay.arenaPx, lay.arenaPx);
+    c.clip();
+    if (demo) {
+      view.pal = pal;
+      view.skin = skinAtual(saveData);
+      view.grao = saveData.opcoes.grao && !saveData.opcoes.reduzirMovimento;
+      view.shake = 0;
+      view.zoom = 1;
+      view.tempo = tempo;
+      view.morte = 0;
+      view.ghost = null;
+      render(c, layer, demo.prev, demo.state, saveData.opcoes.reduzirMovimento ? 1 : Math.min(1, demoAcc / (1000 / 7)), view);
+    } else {
+      c.drawImage(layer.grade, 0, 0);
+    }
     c.restore();
   }
 

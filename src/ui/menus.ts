@@ -1,12 +1,13 @@
 import type { SaveData } from '../meta/save';
 import type { ModeId } from '../core/config';
-import { MODES, MODE_ORDER, POWERS } from '../core/config';
+import { MODES, MODE_ORDER, POWERS, RELICS, OURO_SEGMENTOS } from '../core/config';
 import { listarSkins, listarPoderes, listarReliquias, comprar, equipar } from '../meta/shop';
 import type { ShopItem } from '../meta/shop';
 import { sfxUi, sfxCompra } from '../audio/synth';
 import { drawIcone } from './hud';
-import { drawSkinPreview, drawRelicIcon } from './preview';
+import { drawSkinPreview, drawRelicIcon, drawModeIcon } from './preview';
 import { skinById } from '../render/skins/defs';
+import { RARIDADE, causaTexto } from './textos';
 import type { PowerId, RelicId } from '../core/config';
 
 // Menus em DOM: acessiveis por teclado e leitor de tela, e mais leves
@@ -37,8 +38,17 @@ const CSS = `
 .ouro-caro{opacity:.42}
 .ouro-tag{float:right;font-size:11px;letter-spacing:.1em;opacity:.75}
 .ouro-grande{font-size:clamp(40px,14vw,72px);font-weight:800;line-height:1;margin:0}
-.ouro-tab{display:flex;justify-content:space-between;font-size:13px;opacity:.8;
+.ouro-tab{display:flex;justify-content:space-between;gap:12px;font-size:13px;opacity:.8;
   border-bottom:1px solid rgba(226,218,200,.1);padding:4px 0}
+.ouro-tab span{min-width:0}
+.ouro-item{display:flex;gap:9px;align-items:flex-start;padding:6px 0;
+  border-bottom:1px solid rgba(226,218,200,.1)}
+.ouro-item-n{flex:none;width:20px;height:20px;border-radius:3px;font-size:11.5px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(226,218,200,.24);background:rgba(226,218,200,.06)}
+.ouro-item-txt{min-width:0;flex:1}
+.ouro-item-txt b{display:block;font-size:13.5px;letter-spacing:.04em}
+.ouro-item-txt span{display:block;font-size:11.5px;opacity:.6;margin-top:2px;line-height:1.35}
 .ouro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .ouro-card{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:10px}
 .ouro-card canvas{width:100%;height:56px;display:block;border-radius:2px;
@@ -53,7 +63,31 @@ const CSS = `
 .ouro-rar-comum{color:#9C9484}.ouro-rar-incomum{color:#8FBF5A}
 .ouro-rar-raro{color:#6EA8FF}.ouro-rar-lendario{color:#D9A441}
 .ouro-equipado{color:#D9A441}
-.ouro-continuar{border-color:#D9A441;background:rgba(217,164,65,.1)}
+.ouro-continuar{border-color:#D9A441;background:rgba(217,164,65,.14)}
+.ouro-ui{background:radial-gradient(ellipse at 50% 42%,rgba(12,10,8,.62) 0%,rgba(12,10,8,.88) 55%,rgba(12,10,8,.97) 100%)}
+.ouro-box>*{position:relative}
+.ouro-marca,.ouro-chips,.ouro-teclas,.ouro-tab,.ouro-sub{text-shadow:0 1px 10px rgba(12,10,8,.95)}
+.ouro-marca{display:flex;align-items:center;gap:14px}
+.ouro-marca canvas{width:64px;height:64px;flex:none}
+.ouro-marca h1{margin:0}
+.ouro-lema{opacity:.55;margin:2px 0 0;font-size:12.5px;letter-spacing:.06em;line-height:1.35}
+.ouro-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ouro-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;
+  border:1px solid rgba(226,218,200,.16);background:rgba(226,218,200,.05);font-size:12px;letter-spacing:.04em}
+.ouro-chip canvas{width:34px;height:16px;display:block}
+.ouro-chip b{font-weight:700;letter-spacing:.06em}
+.ouro-chip-moeda i{width:9px;height:9px;border-radius:50%;background:#D9A441;
+  box-shadow:0 0 6px rgba(217,164,65,.75);font-style:normal;display:inline-block}
+.ouro-modo{display:flex;align-items:center;gap:12px;padding:11px 13px}
+.ouro-modo canvas{width:40px;height:40px;flex:none;opacity:.9}
+.ouro-modo-txt{flex:1;min-width:0}
+.ouro-modo-txt b{display:block;font-size:16.5px;letter-spacing:.06em}
+.ouro-modo-txt span{display:block;opacity:.6;font-size:12px;margin-top:2px}
+.ouro-rec{font-size:11px;letter-spacing:.1em;opacity:.85;text-align:right;flex:none;color:#D9A441}
+.ouro-teclas{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:11.5px;opacity:.6}
+.ouro-par{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.ouro-tecla{border:1px solid rgba(226,218,200,.24);border-radius:3px;padding:2px 6px;letter-spacing:.06em}
+.ouro-destaque{border-color:rgba(217,164,65,.55);background:rgba(217,164,65,.09)}
 .ouro-dpad{position:fixed;left:calc(10px + env(safe-area-inset-left));
   bottom:calc(10px + env(safe-area-inset-bottom));width:150px;height:150px;z-index:5;opacity:.5}
 .ouro-dbtn{position:absolute;width:50px;height:50px;background:rgba(226,218,200,.12);
@@ -146,44 +180,127 @@ export class UI {
   menu(): void {
     this.tela = 'menu';
     const box = this.abrir();
-    box.appendChild(el('h1', 'ouro-titulo', 'OUROBORO'));
-    box.appendChild(el('p', 'ouro-sub', 'o corpo e a sua energia. gastar salva agora e empobrece depois'));
-    box.appendChild(el('p', 'ouro-moedas', `${this.save.coins} moedas`));
+
+    // Marca: o anel do ouroboro desenhado ao lado do titulo.
+    const marca = el('div', 'ouro-marca');
+    const selo = document.createElement('canvas');
+    selo.width = 128;
+    selo.height = 128;
+    drawModeIcon(selo, 'ouroboro', '#D9A441');
+    marca.appendChild(selo);
+    const textoMarca = el('div');
+    textoMarca.appendChild(el('h1', 'ouro-titulo', 'OUROBORO'));
+    textoMarca.appendChild(el('p', 'ouro-lema', 'O corpo é a sua energia. Gastar salva agora e empobrece depois.'));
+    marca.appendChild(textoMarca);
+    box.appendChild(marca);
+
+    box.appendChild(this.chipsEstado());
 
     const lista = el('div', 'ouro-lista');
     if (this.h.temRunSalva()) {
-      const b = botao('Continuar run', 'sua partida foi guardada onde parou', () => this.h.retomarRun());
+      const b = botao('Continuar partida', 'sua partida foi guardada onde parou', () => this.h.retomarRun());
       b.classList.add('ouro-continuar');
       lista.appendChild(b);
     }
     for (const id of MODE_ORDER) {
-      const m = MODES[id];
-      const rec = this.save.recordes[id];
-      const desc = rec ? `${m.desc}. recorde ${rec}` : m.desc;
-      lista.appendChild(botao(m.nome, desc, () => this.h.jogar(id)));
+      lista.appendChild(this.cardModo(id));
     }
     box.appendChild(lista);
 
     const linha = el('div', 'ouro-linha');
     linha.appendChild(botao('Loja', '', () => this.loja()));
-    linha.appendChild(botao('Opcoes', '', () => this.opcoes()));
+    linha.appendChild(botao('Opções', '', () => this.opcoes()));
     box.appendChild(linha);
 
     if (this.save.diario.length > 0) {
       const hist = el('div');
-      hist.appendChild(el('p', 'ouro-sub', 'diario, ultimos dias'));
+      hist.appendChild(el('p', 'ouro-sub', 'DESAFIO DIÁRIO, ÚLTIMOS DIAS'));
       for (const d of this.save.diario.slice(0, 5)) {
         const l = el('div', 'ouro-tab');
-        l.appendChild(el('span', undefined, d.data));
-        l.appendChild(el('span', undefined, String(d.score)));
+        l.appendChild(el('span', undefined, d.data.split('-').reverse().join('/')));
+        l.appendChild(el('span', undefined, `${d.score} pontos`));
         hist.appendChild(l);
       }
       box.appendChild(hist);
     }
 
-    const dica = el('p', 'ouro-sub');
-    dica.textContent = 'setas ou wasd movem. 1 2 3 usam poderes. espaco devora a cauda';
-    box.appendChild(dica);
+    box.appendChild(this.legendaTeclas());
+  }
+
+  // Chips com o estado do jogador: moedas, skin equipada e loadout.
+  private chipsEstado(): HTMLElement {
+    const chips = el('div', 'ouro-chips');
+
+    const moeda = el('div', 'ouro-chip ouro-chip-moeda');
+    moeda.appendChild(el('i'));
+    moeda.appendChild(el('b', undefined, String(this.save.coins)));
+    moeda.appendChild(document.createTextNode('moedas'));
+    chips.appendChild(moeda);
+
+    const skin = skinById(this.save.skinEquipada);
+    const chipSkin = el('div', 'ouro-chip');
+    const cv = document.createElement('canvas');
+    cv.width = 102;
+    cv.height = 48;
+    drawSkinPreview(cv, skin);
+    chipSkin.appendChild(cv);
+    chipSkin.appendChild(document.createTextNode(skin.nome));
+    chips.appendChild(chipSkin);
+
+    for (let i = 0; i < this.save.loadout.length; i++) {
+      const p = POWERS[this.save.loadout[i]];
+      const chip = el('div', 'ouro-chip');
+      chip.appendChild(el('b', undefined, String(i + 1)));
+      chip.appendChild(document.createTextNode(`${p.nome} -${p.custo}`));
+      chips.appendChild(chip);
+    }
+
+    for (const r of this.save.reliquiasEquipadas) {
+      const chip = el('div', 'ouro-chip');
+      chip.appendChild(document.createTextNode(RELICS[r].nome));
+      chips.appendChild(chip);
+    }
+    return chips;
+  }
+
+  private cardModo(id: ModeId): HTMLButtonElement {
+    const m = MODES[id];
+    const b = el('button', 'ouro-btn ouro-modo');
+    if (id === 'ouroboro') b.classList.add('ouro-destaque');
+    const cv = document.createElement('canvas');
+    cv.width = 80;
+    cv.height = 80;
+    drawModeIcon(cv, id, '#E2DAC8');
+    b.appendChild(cv);
+
+    const txt = el('div', 'ouro-modo-txt');
+    txt.appendChild(el('b', undefined, m.nome));
+    txt.appendChild(el('span', undefined, m.desc));
+    b.appendChild(txt);
+
+    const rec = this.save.recordes[id];
+    if (rec) b.appendChild(el('em', 'ouro-rec', `recorde\n${rec}`));
+
+    b.addEventListener('click', () => {
+      sfxUi(true);
+      this.h.jogar(id);
+    });
+    return b;
+  }
+
+  private legendaTeclas(): HTMLElement {
+    const wrap = el('div', 'ouro-teclas');
+    const par = (tecla: string, oque: string): void => {
+      const p = el('span', 'ouro-par');
+      p.appendChild(el('span', 'ouro-tecla', tecla));
+      p.appendChild(el('span', undefined, oque));
+      wrap.appendChild(p);
+    };
+    par('setas ou WASD', 'mover');
+    par('1 2 3', 'poderes');
+    par('4 ou espaço', 'devorar a cauda');
+    par('Esc', 'pausar');
+    return wrap;
   }
 
   loja(): void {
@@ -203,15 +320,15 @@ export class UI {
     };
     mk('Skins', 'skin');
     mk('Poderes', 'poder');
-    mk('Reliquias', 'reliquia');
+    mk('Relíquias', 'reliquia');
     box.appendChild(abas);
 
     if (this.aba === 'skin') {
-      box.appendChild(el('p', 'ouro-sub', 'skin nunca da vantagem. toda vantagem mora nas reliquias'));
+      box.appendChild(el('p', 'ouro-sub', 'Skin nunca dá vantagem. Toda vantagem mora nas relíquias.'));
     } else if (this.aba === 'poder') {
-      box.appendChild(el('p', 'ouro-sub', `equipe ate 3. equipados: ${this.save.loadout.length}/3`));
+      box.appendChild(el('p', 'ouro-sub', `Equipe até 3 poderes. Equipados: ${this.save.loadout.length}/3`));
     } else {
-      box.appendChild(el('p', 'ouro-sub', `alteram as regras. equipe ate 2. equipadas: ${this.save.reliquiasEquipadas.length}/2`));
+      box.appendChild(el('p', 'ouro-sub', `Alteram as regras. Equipe até 2. Equipadas: ${this.save.reliquiasEquipadas.length}/2`));
     }
 
     const itens: ShopItem[] =
@@ -248,7 +365,7 @@ export class UI {
     const titulo = el('b', undefined, it.nome);
     if (it.tipo === 'skin') {
       const rar = skinById(it.id).raridade;
-      const tag = el('i', `ouro-tag ouro-rar ouro-rar-${rar}`, rar);
+      const tag = el('i', `ouro-tag ouro-rar ouro-rar-${rar}`, RARIDADE[rar]);
       titulo.appendChild(tag);
     }
     b.appendChild(titulo);
@@ -292,7 +409,7 @@ export class UI {
   opcoes(): void {
     this.tela = 'opcoes';
     const box = this.abrir();
-    box.appendChild(el('h2', 'ouro-titulo', 'OPCOES'));
+    box.appendChild(el('h2', 'ouro-titulo', 'OPÇÕES'));
     const o = this.save.opcoes;
     const lista = el('div', 'ouro-lista');
 
@@ -306,17 +423,17 @@ export class UI {
       );
     };
 
-    toggle('Screen shake', 'tremor de tela nos impactos', () => o.shake, (v) => (o.shake = v));
-    toggle('Grao de filme', 'textura sutil por cima de tudo', () => o.grao, (v) => (o.grao = v));
-    toggle('Reduzir movimento', 'sem zoom, sem tremor, sem particulas', () => o.reduzirMovimento, (v) => (o.reduzirMovimento = v));
-    toggle('Alto contraste', 'fundo preto e traco mais forte', () => o.altoContraste, (v) => (o.altoContraste = v));
-    toggle('Audio', 'sons e trilha sintetizados', () => o.audio, (v) => (o.audio = v));
-    toggle('D-pad na tela', 'botoes de direcao no toque', () => o.dpad, (v) => (o.dpad = v));
+    toggle('Tremor de tela', 'a tela sacode nos impactos', () => o.shake, (v) => (o.shake = v));
+    toggle('Grão de filme', 'textura sutil por cima de tudo', () => o.grao, (v) => (o.grao = v));
+    toggle('Reduzir movimento', 'sem zoom, sem tremor, sem partículas', () => o.reduzirMovimento, (v) => (o.reduzirMovimento = v));
+    toggle('Alto contraste', 'fundo preto e traço mais forte', () => o.altoContraste, (v) => (o.altoContraste = v));
+    toggle('Áudio', 'sons e trilha sintetizados na hora', () => o.audio, (v) => (o.audio = v));
+    toggle('Direcional na tela', 'botões de direção para jogar no toque', () => o.dpad, (v) => (o.dpad = v));
 
     const dalts = ['nenhum', 'protanopia', 'deuteranopia', 'tritanopia'] as const;
     for (const d of dalts) {
       lista.appendChild(
-        botao(`Paleta: ${d}`, '', () => {
+        botao(`Paleta: ${d === 'nenhum' ? 'padrão' : d}`, '', () => {
           o.daltonismo = d;
           this.h.mudouSave();
           this.opcoes();
@@ -333,35 +450,50 @@ export class UI {
     box.appendChild(el('h2', 'ouro-titulo', 'PAUSA'));
     const lista = el('div', 'ouro-lista');
     lista.appendChild(botao('Continuar', '', () => this.h.retomar()));
-    lista.appendChild(botao('Opcoes', '', () => this.opcoes()));
-    lista.appendChild(botao('Sair da run', 'as moedas ganhas ficam', () => this.h.sair()));
+    lista.appendChild(botao('Opções', '', () => this.opcoes()));
+    lista.appendChild(botao('Sair da partida', 'as moedas ganhas ficam com você', () => this.h.sair()));
     box.appendChild(lista);
     box.appendChild(this.tabelaPoderes());
+    box.appendChild(this.legendaTeclas());
   }
 
+  // Lista dos poderes equipados com o numero do atalho em destaque, para
+  // o jogador aprender a tecla enquanto le o efeito.
   private tabelaPoderes(): HTMLElement {
     const wrap = el('div');
-    wrap.appendChild(el('p', 'ouro-sub', 'poderes equipados'));
+    wrap.appendChild(el('p', 'ouro-sub', 'PODERES EQUIPADOS'));
     for (let i = 0; i < this.save.loadout.length; i++) {
       const p = POWERS[this.save.loadout[i]];
-      const l = el('div', 'ouro-tab');
-      l.appendChild(el('span', undefined, `${i + 1}. ${p.nome} (-${p.custo})`));
-      l.appendChild(el('span', undefined, p.desc));
-      wrap.appendChild(l);
+      wrap.appendChild(this.itemAtalho(String(i + 1), `${p.nome}, custa ${p.custo} segmentos`, p.desc));
     }
+    wrap.appendChild(
+      this.itemAtalho('4', `Ouroboro, custa ${OURO_SEGMENTOS} segmentos`, 'Devora a própria cauda por moedas e recarrega um poder'),
+    );
     return wrap;
+  }
+
+  private itemAtalho(tecla: string, titulo: string, desc: string): HTMLElement {
+    const l = el('div', 'ouro-item');
+    l.appendChild(el('em', 'ouro-item-n', tecla));
+    const txt = el('div', 'ouro-item-txt');
+    txt.appendChild(el('b', undefined, titulo));
+    txt.appendChild(el('span', undefined, desc));
+    l.appendChild(txt);
+    return l;
   }
 
   fim(score: number, moedas: number, recorde: boolean, causa: string, mode: ModeId): void {
     this.tela = 'fim';
     this.ultimoResultado = { score, moedas, recorde, causa, mode };
     const box = this.abrir();
-    box.appendChild(el('p', 'ouro-sub', recorde ? 'novo recorde' : `fim por ${causa}`));
+    box.appendChild(
+      el('p', 'ouro-sub', recorde ? 'NOVO RECORDE' : causaTexto(causa as 'desistencia').toUpperCase()),
+    );
     box.appendChild(el('h2', 'ouro-grande', String(score)));
-    box.appendChild(el('p', 'ouro-moedas', `+${moedas} moedas, total ${this.save.coins}`));
+    box.appendChild(el('p', 'ouro-moedas', `+${moedas} moedas, total de ${this.save.coins}`));
     const lista = el('div', 'ouro-lista');
-    lista.appendChild(botao('De novo', '', () => this.h.jogar(this.ultimoResultado.mode)));
-    lista.appendChild(botao('Loja', '', () => this.loja()));
+    lista.appendChild(botao('Jogar de novo', MODES[mode].nome, () => this.h.jogar(this.ultimoResultado.mode)));
+    lista.appendChild(botao('Loja', 'gaste o que você ganhou', () => this.loja()));
     lista.appendChild(botao('Menu', '', () => this.menu()));
     box.appendChild(lista);
   }
